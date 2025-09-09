@@ -30,6 +30,15 @@ namespace MyApp.Repositories
                 .ToListAsync();
         }
 
+        public async Task<WishlistItem?> GetByUserAndProductAsync(int userId, int? productId, int? petId)
+        {
+            return await _context.WishlistItems
+                .FirstOrDefaultAsync(w =>
+                    w.UserId == userId &&
+                    w.ProductId == productId &&
+                    w.PetId == petId);
+        }
+
         public async Task AddAsync(WishlistItem wishlistItem)
         {
             await _context.WishlistItems.AddAsync(wishlistItem);

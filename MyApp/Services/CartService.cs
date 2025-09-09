@@ -1,28 +1,49 @@
-﻿using MyApp.DTOs.Cart;
+﻿using AutoMapper;
+using MyApp.Data;
+using MyApp.DTOs.Cart;
 using MyApp.Entities;
 using MyApp.Repositories.Interfaces;
 using MyApp.Services.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace MyApp.Services
 {
     public class CartService : ICartService
     {
         private readonly ICartRepository _cartRepository;
+        private readonly IMapper _mapper;
 
-        public CartService(ICartRepository cartRepository)
+        public CartService(ICartRepository cartRepository, IMapper mapper)
         {
             _cartRepository = cartRepository;
+            _mapper = mapper;
         }
 
         public async Task<IEnumerable<CartItemDto>> GetUserCartAsync(int userId)
         {
             var items = await _cartRepository.GetByUserIdAsync(userId);
-            return items.Select(MapToDto).ToList();
+            return _mapper.Map<IEnumerable<CartItemDto>>(items);
         }
 
+        public async Task<IEnumerable<CartItem>> GetUserCartEntitiesAsync(int userId)
+        {
+            return await _cartRepository.GetByUserIdAsync(userId);
+        }
+
+        // ✅ Updated: increment quantity if item exists
         public async Task<CartItemDto> AddItemAsync(int userId, AddCartItemRequest dto)
         {
-            var cartItem = new CartItem
+            var existingItem = await _cartRepository.GetByUserAndProductAsync(userId, dto.ProductId, dto.PetId);
+
+            if (existingItem != null)
+            {
+                existingItem.Quantity += dto.Quantity;
+                await _cartRepository.UpdateAsync(existingItem);
+                await _cartRepository.SaveChangesAsync();
+                return _mapper.Map<CartItemDto>(existingItem);
+            }
+
+            var newItem = new CartItem
             {
                 UserId = userId,
                 ProductId = dto.ProductId,
@@ -30,45 +51,40 @@ namespace MyApp.Services
                 Quantity = dto.Quantity
             };
 
-            await _cartRepository.AddAsync(cartItem);
+            await _cartRepository.AddAsync(newItem);
             await _cartRepository.SaveChangesAsync();
 
-            return MapToDto(cartItem);
+            return _mapper.Map<CartItemDto>(newItem);
         }
 
         public async Task<CartItemDto?> UpdateQuantityAsync(int cartItemId, int quantity)
         {
-            var cartItem = await _cartRepository.GetByIdAsync(cartItemId);
-            if (cartItem == null) return null;
+            var item = await _cartRepository.GetByIdAsync(cartItemId);
+            if (item == null) return null;
 
-            cartItem.Quantity = quantity;
-            await _cartRepository.UpdateAsync(cartItem);
+            item.Quantity = quantity;
+            await _cartRepository.UpdateAsync(item);
             await _cartRepository.SaveChangesAsync();
 
-            return MapToDto(cartItem);
+            return _mapper.Map<CartItemDto>(item);
         }
 
-        public async Task<bool> RemoveItemAsync(int cartItemId)
+        public async Task<bool> RemoveItemAsync(int userId, int cartItemId)
         {
-            var cartItem = await _cartRepository.GetByIdAsync(cartItemId);
-            if (cartItem == null) return false;
+            var item = await _cartRepository.GetByIdAsync(cartItemId);
+            if (item == null || item.UserId != userId) return false;
 
-            await _cartRepository.DeleteAsync(cartItem);
+            await _cartRepository.DeleteAsync(item);
             await _cartRepository.SaveChangesAsync();
             return true;
         }
 
-        private static CartItemDto MapToDto(CartItem item)
+        public async Task ClearUserCartAsync(int userId)
         {
-            return new CartItemDto
-            {
-                Id = item.Id,
-                ProductId = item.ProductId,
-                PetId = item.PetId,
-                Quantity = item.Quantity,
-                ProductName = item.Product?.Name,
-                PetName = item.Pet?.Name
-            };
+            var items = await _cartRepository.GetByUserIdAsync(userId);
+            await _cartRepository.DeleteRangeAsync(items);
+            await _cartRepository.SaveChangesAsync();
         }
+
     }
 }

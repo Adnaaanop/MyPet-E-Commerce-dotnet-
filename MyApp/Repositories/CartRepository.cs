@@ -31,6 +31,15 @@ namespace MyApp.Repositories
                 .ToListAsync();
         }
 
+        public async Task<CartItem?> GetByUserAndProductAsync(int userId, int? productId, int? petId)
+        {
+            return await _context.CartItems
+                .FirstOrDefaultAsync(c =>
+                    c.UserId == userId &&
+                    c.ProductId == productId &&
+                    c.PetId == petId);
+        }
+
         public async Task AddAsync(CartItem cartItem)
         {
             await _context.CartItems.AddAsync(cartItem);
@@ -46,6 +55,12 @@ namespace MyApp.Repositories
         {
             _context.CartItems.Remove(cartItem);
             return Task.CompletedTask;
+        }
+
+        public async Task DeleteRangeAsync(IEnumerable<CartItem> cartItems)
+        {
+            _context.CartItems.RemoveRange(cartItems);
+            await Task.CompletedTask;
         }
 
         public async Task SaveChangesAsync()

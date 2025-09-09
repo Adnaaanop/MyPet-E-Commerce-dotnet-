@@ -1,14 +1,15 @@
-﻿using MyApp.Entities;
+﻿using MyApp.DTOs.Orders;
+using MyApp.Entities;
 
 namespace MyApp.Services.Interfaces
 {
     public interface IOrderService
     {
-        Task<IEnumerable<Order>> GetAllOrdersAsync();
-        Task<Order> GetOrderByIdAsync(int id);
-        Task<IEnumerable<Order>> GetOrdersByUserIdAsync(int userId);
-        Task<Order> PlaceOrderAsync(Order order);
-        Task UpdateOrderAsync(Order order);
-        Task DeleteOrderAsync(int id);
+        Task<IEnumerable<OrderDto>> GetAllOrdersAsync();
+        Task<OrderDto?> GetOrderByIdAsync(int id);
+        Task<IEnumerable<OrderDto>> GetOrdersByUserIdAsync(int userId);
+        Task<OrderDto> PlaceOrderAsync(Order order);
+        Task<OrderDto> UpdateOrderAsync(Order order);
+        Task<bool> DeleteOrderAsync(int id);
     }
 }

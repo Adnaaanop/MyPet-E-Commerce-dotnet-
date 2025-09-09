@@ -1,4 +1,6 @@
-﻿using MyApp.DTOs.Wishlist;
+﻿using AutoMapper;
+using MyApp.DTOs.Wishlist;
+using MyApp.DTOs.Cart;
 using MyApp.Entities;
 using MyApp.Repositories.Interfaces;
 using MyApp.Services.Interfaces;
@@ -8,53 +10,93 @@ namespace MyApp.Services
     public class WishlistService : IWishlistService
     {
         private readonly IWishlistRepository _wishlistRepository;
+        private readonly ICartService _cartService;
+        private readonly IMapper _mapper;
 
-        public WishlistService(IWishlistRepository wishlistRepository)
+        public WishlistService(
+            IWishlistRepository wishlistRepository,
+            ICartService cartService,
+            IMapper mapper)
         {
             _wishlistRepository = wishlistRepository;
+            _cartService = cartService;
+            _mapper = mapper;
         }
 
         public async Task<IEnumerable<WishlistItemDto>> GetUserWishlistAsync(int userId)
         {
             var items = await _wishlistRepository.GetByUserIdAsync(userId);
-            return items.Select(MapToDto).ToList();
+            return _mapper.Map<IEnumerable<WishlistItemDto>>(items);
         }
 
-        public async Task<WishlistItemDto> AddItemAsync(int userId, AddWishlistItemRequest dto)
+        public async Task<WishlistItemDto> AddItemAsync(int userId, AddWishlistItemRequest request)
         {
-            var wishlistItem = new WishlistItem
+            var existingItem = await _wishlistRepository.GetByUserAndProductAsync(userId, request.ProductId, request.PetId);
+            if (existingItem != null)
+                return _mapper.Map<WishlistItemDto>(existingItem);
+
+            var newItem = new WishlistItem
             {
                 UserId = userId,
-                ProductId = dto.ProductId,
-                PetId = dto.PetId
+                ProductId = request.ProductId,
+                PetId = request.PetId
             };
 
-            await _wishlistRepository.AddAsync(wishlistItem);
+            await _wishlistRepository.AddAsync(newItem);
             await _wishlistRepository.SaveChangesAsync();
 
-            return MapToDto(wishlistItem);
+            return _mapper.Map<WishlistItemDto>(newItem);
         }
 
-        public async Task<bool> RemoveItemAsync(int wishlistItemId)
+        public async Task<bool> RemoveItemAsync(int userId, int wishlistItemId)
         {
-            var wishlistItem = await _wishlistRepository.GetByIdAsync(wishlistItemId);
-            if (wishlistItem == null) return false;
+            var item = await _wishlistRepository.GetByIdAsync(wishlistItemId);
+            if (item == null || item.UserId != userId) return false;
 
-            await _wishlistRepository.DeleteAsync(wishlistItem);
+            await _wishlistRepository.DeleteAsync(item);
             await _wishlistRepository.SaveChangesAsync();
             return true;
         }
 
-        private static WishlistItemDto MapToDto(WishlistItem item)
+        // ✅ Move all items from wishlist to cart
+        public async Task<IEnumerable<CartItemDto>> MoveAllToCartAsync(int userId)
         {
-            return new WishlistItemDto
+            var wishlistItems = await _wishlistRepository.GetByUserIdAsync(userId);
+            if (!wishlistItems.Any()) return Enumerable.Empty<CartItemDto>();
+
+            foreach (var item in wishlistItems)
             {
-                Id = item.Id,
+                await _cartService.AddItemAsync(userId, new AddCartItemRequest
+                {
+                    ProductId = item.ProductId,
+                    PetId = item.PetId,
+                    Quantity = 1
+                });
+
+                await _wishlistRepository.DeleteAsync(item);
+            }
+
+            await _wishlistRepository.SaveChangesAsync();
+            return await _cartService.GetUserCartAsync(userId);
+        }
+
+        // ✅ Move a single wishlist item to cart
+        public async Task<CartItemDto?> MoveItemToCartAsync(int userId, int wishlistItemId)
+        {
+            var item = await _wishlistRepository.GetByIdAsync(wishlistItemId);
+            if (item == null || item.UserId != userId) return null;
+
+            var cartItem = await _cartService.AddItemAsync(userId, new AddCartItemRequest
+            {
                 ProductId = item.ProductId,
                 PetId = item.PetId,
-                ProductName = item.Product?.Name,
-                PetName = item.Pet?.Name
-            };
+                Quantity = 1
+            });
+
+            await _wishlistRepository.DeleteAsync(item);
+            await _wishlistRepository.SaveChangesAsync();
+
+            return cartItem;
         }
     }
 }

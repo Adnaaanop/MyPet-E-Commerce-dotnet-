@@ -1,4 +1,5 @@
-﻿using MyApp.DTOs.Pets;
+﻿using AutoMapper;
+using MyApp.DTOs.Pets;
 using MyApp.Entities;
 using MyApp.Repositories.Interfaces;
 using MyApp.Services.Interfaces;
@@ -8,40 +9,34 @@ namespace MyApp.Services
     public class PetService : IPetService
     {
         private readonly IPetRepository _petRepository;
+        private readonly IMapper _mapper;
 
-        public PetService(IPetRepository petRepository)
+        public PetService(IPetRepository petRepository, IMapper mapper)
         {
             _petRepository = petRepository;
+            _mapper = mapper;
         }
 
         public async Task<PetDto?> GetByIdAsync(int id)
         {
             var pet = await _petRepository.GetByIdAsync(id);
-            return pet == null ? null : MapToDto(pet);
+            return pet == null ? null : _mapper.Map<PetDto>(pet);
         }
 
         public async Task<IEnumerable<PetDto>> GetAllAsync()
         {
             var pets = await _petRepository.GetAllAsync();
-            return pets.Select(MapToDto).ToList();
+            return _mapper.Map<IEnumerable<PetDto>>(pets);
         }
 
         public async Task<PetDto> CreateAsync(CreatePetDto dto)
         {
-            var pet = new Pet
-            {
-                Name = dto.Name,
-                Breed = dto.Breed,
-                Age = dto.Age,
-                Price = dto.Price,
-                Description = dto.Description,
-                ImageUrl = dto.ImageUrl
-            };
+            var pet = _mapper.Map<Pet>(dto);
 
             await _petRepository.AddAsync(pet);
             await _petRepository.SaveChangesAsync();
 
-            return MapToDto(pet);
+            return _mapper.Map<PetDto>(pet);
         }
 
         public async Task<PetDto?> UpdateAsync(int id, UpdatePetDto dto)
@@ -49,17 +44,12 @@ namespace MyApp.Services
             var pet = await _petRepository.GetByIdAsync(id);
             if (pet == null) return null;
 
-            pet.Name = dto.Name;
-            pet.Breed = dto.Breed;
-            pet.Age = dto.Age;
-            pet.Price = dto.Price;
-            pet.Description = dto.Description;
-            pet.ImageUrl = dto.ImageUrl;
+            _mapper.Map(dto, pet); // ✅ updates entity with dto fields
 
             await _petRepository.UpdateAsync(pet);
             await _petRepository.SaveChangesAsync();
 
-            return MapToDto(pet);
+            return _mapper.Map<PetDto>(pet);
         }
 
         public async Task<bool> DeleteAsync(int id)
@@ -70,20 +60,6 @@ namespace MyApp.Services
             await _petRepository.DeleteAsync(pet);
             await _petRepository.SaveChangesAsync();
             return true;
-        }
-
-        private static PetDto MapToDto(Pet pet)
-        {
-            return new PetDto
-            {
-                Id = pet.Id,
-                Name = pet.Name,
-                Breed = pet.Breed,
-                Age = pet.Age,
-                Price = pet.Price,
-                Description = pet.Description,
-                ImageUrl = pet.ImageUrl
-            };
         }
     }
 }
