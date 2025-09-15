@@ -29,9 +29,14 @@ namespace MyApp.Services
             return _mapper.Map<IEnumerable<ProductDto>>(products);
         }
 
-        public async Task<ProductDto> CreateAsync(CreateProductDto dto)
+        public async Task<ProductDto> CreateAsync(CreateProductDto dto, string? imageUrl)
         {
             var product = _mapper.Map<Product>(dto);
+
+            if (!string.IsNullOrEmpty(imageUrl))
+            {
+                product.ImageUrl = imageUrl;
+            }
 
             await _productRepository.AddAsync(product);
             await _productRepository.SaveChangesAsync();
@@ -39,12 +44,17 @@ namespace MyApp.Services
             return _mapper.Map<ProductDto>(product);
         }
 
-        public async Task<ProductDto?> UpdateAsync(int id, UpdateProductDto dto)
+        public async Task<ProductDto?> UpdateAsync(int id, UpdateProductDto dto, string? imageUrl)
         {
             var product = await _productRepository.GetByIdAsync(id);
             if (product == null) return null;
 
             _mapper.Map(dto, product);
+
+            if (!string.IsNullOrEmpty(imageUrl))
+            {
+                product.ImageUrl = imageUrl;
+            }
 
             await _productRepository.UpdateAsync(product);
             await _productRepository.SaveChangesAsync();

@@ -1,4 +1,7 @@
-﻿namespace MyApp.DTOs.Products
+﻿using Microsoft.AspNetCore.Http;
+using System.Text.Json.Serialization;
+
+namespace MyApp.DTOs.Products
 {
     public class UpdateProductDto
     {
@@ -8,6 +11,10 @@
         public string Description { get; set; } = string.Empty;
         public double Rating { get; set; }
         public int Stock { get; set; }
-        public string ImageUrl { get; set; } = string.Empty;
+
+        // ✅ Only file upload
+
+        // File upload
+        public IFormFile? ImageFile { get; set; }
     }
 }

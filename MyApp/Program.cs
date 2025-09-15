@@ -1,16 +1,17 @@
 ﻿//using FluentValidation;
+using AutoMapper;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
 using MyApp.Data;
+using MyApp.Helpers;
 using MyApp.Mappings;
 using MyApp.Middlewares;
 using MyApp.Repositories;
 using MyApp.Repositories.Interfaces;
 using MyApp.Services;
 using MyApp.Services.Interfaces;
-using AutoMapper;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
 //using MyApp.Validators;
@@ -64,6 +65,12 @@ namespace MyApp
             builder.Services.AddScoped<ICartService, CartService>();
             builder.Services.AddScoped<IWishlistService, WishlistService>();
             builder.Services.AddScoped<IOrderService, OrderService>();
+
+            //Cloudinary
+            builder.Services.Configure<CloudinarySettings>(
+            builder.Configuration.GetSection("CloudinarySettings"));
+            builder.Services.AddScoped<CloudinaryService>();
+
 
             builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 

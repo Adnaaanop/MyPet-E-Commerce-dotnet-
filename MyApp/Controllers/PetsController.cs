@@ -2,9 +2,7 @@
 using MyApp.DTOs.Pets;
 using MyApp.DTOs.Common;
 using MyApp.Services.Interfaces;
-using System.Collections.Generic;
-using System;
-using System.Threading.Tasks;
+using MyApp.Services;
 
 namespace MyApp.Controllers
 {
@@ -13,13 +11,14 @@ namespace MyApp.Controllers
     public class PetsController : ControllerBase
     {
         private readonly IPetService _petService;
+        private readonly CloudinaryService _cloudinaryService;
 
-        public PetsController(IPetService petService)
+        public PetsController(IPetService petService, CloudinaryService cloudinaryService)
         {
             _petService = petService;
+            _cloudinaryService = cloudinaryService;
         }
 
-        // GET: api/pets
         [HttpGet]
         public async Task<ActionResult<ApiResponse<IEnumerable<PetDto>>>> GetAll()
         {
@@ -34,7 +33,6 @@ namespace MyApp.Controllers
             }
         }
 
-        // GET: api/pets/5
         [HttpGet("{id}")]
         public async Task<ActionResult<ApiResponse<PetDto>>> GetById(int id)
         {
@@ -52,13 +50,18 @@ namespace MyApp.Controllers
             }
         }
 
-        // POST: api/pets
         [HttpPost]
-        public async Task<ActionResult<ApiResponse<PetDto>>> Create([FromBody] CreatePetDto dto)
+        public async Task<ActionResult<ApiResponse<PetDto>>> Create([FromForm] CreatePetDto dto)
         {
             try
             {
-                var created = await _petService.CreateAsync(dto);
+                string? imageUrl = null;
+                if (dto.ImageFile != null)
+                {
+                    imageUrl = await _cloudinaryService.UploadImageAsync(dto.ImageFile);
+                }
+
+                var created = await _petService.CreateAsync(dto, imageUrl);
                 return CreatedAtAction(nameof(GetById), new { id = created.Id },
                     ApiResponse<PetDto>.SuccessResponse(created, "Pet created successfully", 201));
             }
@@ -68,13 +71,18 @@ namespace MyApp.Controllers
             }
         }
 
-        // PUT: api/pets/5
         [HttpPut("{id}")]
-        public async Task<ActionResult<ApiResponse<PetDto>>> Update(int id, [FromBody] UpdatePetDto dto)
+        public async Task<ActionResult<ApiResponse<PetDto>>> Update(int id, [FromForm] UpdatePetDto dto)
         {
             try
             {
-                var updated = await _petService.UpdateAsync(id, dto);
+                string? imageUrl = null;
+                if (dto.ImageFile != null)
+                {
+                    imageUrl = await _cloudinaryService.UploadImageAsync(dto.ImageFile);
+                }
+
+                var updated = await _petService.UpdateAsync(id, dto, imageUrl);
                 if (updated == null)
                     return NotFound(ApiResponse<PetDto>.FailResponse("Pet not found", 404));
 
@@ -86,7 +94,6 @@ namespace MyApp.Controllers
             }
         }
 
-        // DELETE: api/pets/5
         [HttpDelete("{id}")]
         public async Task<ActionResult<ApiResponse<object>>> Delete(int id)
         {

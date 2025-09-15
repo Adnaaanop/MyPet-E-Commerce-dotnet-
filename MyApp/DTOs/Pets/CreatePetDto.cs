@@ -1,4 +1,7 @@
-﻿namespace MyApp.DTOs.Pets
+﻿using Microsoft.AspNetCore.Http;
+using System.Text.Json.Serialization;
+
+namespace MyApp.DTOs.Pets
 {
     public class CreatePetDto
     {
@@ -7,9 +10,12 @@
         public int Age { get; set; }
         public decimal Price { get; set; }
         public string Description { get; set; } = string.Empty;
-        public string ImageUrl { get; set; } = string.Empty;
         public string Category { get; set; } = string.Empty;
         public int Stock { get; set; }
 
+        // ✅ Only file upload
+
+        // File upload
+        public IFormFile? ImageFile { get; set; }
     }
 }

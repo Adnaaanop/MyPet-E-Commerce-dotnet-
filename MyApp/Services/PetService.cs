@@ -29,9 +29,14 @@ namespace MyApp.Services
             return _mapper.Map<IEnumerable<PetDto>>(pets);
         }
 
-        public async Task<PetDto> CreateAsync(CreatePetDto dto)
+        public async Task<PetDto> CreateAsync(CreatePetDto dto, string? imageUrl)
         {
             var pet = _mapper.Map<Pet>(dto);
+
+            if (!string.IsNullOrEmpty(imageUrl))
+            {
+                pet.ImageUrl = imageUrl;
+            }
 
             await _petRepository.AddAsync(pet);
             await _petRepository.SaveChangesAsync();
@@ -39,12 +44,17 @@ namespace MyApp.Services
             return _mapper.Map<PetDto>(pet);
         }
 
-        public async Task<PetDto?> UpdateAsync(int id, UpdatePetDto dto)
+        public async Task<PetDto?> UpdateAsync(int id, UpdatePetDto dto, string? imageUrl)
         {
             var pet = await _petRepository.GetByIdAsync(id);
             if (pet == null) return null;
 
-            _mapper.Map(dto, pet); // ✅ updates entity with dto fields
+            _mapper.Map(dto, pet);
+
+            if (!string.IsNullOrEmpty(imageUrl))
+            {
+                pet.ImageUrl = imageUrl;
+            }
 
             await _petRepository.UpdateAsync(pet);
             await _petRepository.SaveChangesAsync();

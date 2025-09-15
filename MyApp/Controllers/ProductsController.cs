@@ -2,6 +2,7 @@
 using MyApp.DTOs.Common;
 using MyApp.DTOs.Products;
 using MyApp.Services.Interfaces;
+using MyApp.Services;
 
 namespace MyApp.Controllers
 {
@@ -10,20 +11,14 @@ namespace MyApp.Controllers
     public class ProductsController : ControllerBase
     {
         private readonly IProductService _productService;
+        private readonly CloudinaryService _cloudinaryService;
 
-        public ProductsController(IProductService productService)
+        public ProductsController(IProductService productService, CloudinaryService cloudinaryService)
         {
             _productService = productService;
+            _cloudinaryService = cloudinaryService;
         }
 
-        // Test endpoint for exceptions
-        [HttpGet("test-error")]
-        public IActionResult TestError()
-        {
-            throw new Exception("Something went wrong in ProductsController!");
-        }
-
-        // GET: api/products
         [HttpGet]
         public async Task<ActionResult<ApiResponse<IEnumerable<ProductDto>>>> GetAll()
         {
@@ -38,7 +33,6 @@ namespace MyApp.Controllers
             }
         }
 
-        // GET: api/products/5
         [HttpGet("{id}")]
         public async Task<ActionResult<ApiResponse<ProductDto>>> GetById(int id)
         {
@@ -56,13 +50,18 @@ namespace MyApp.Controllers
             }
         }
 
-        // POST: api/products
         [HttpPost]
-        public async Task<ActionResult<ApiResponse<ProductDto>>> Create([FromBody] CreateProductDto dto)
+        public async Task<ActionResult<ApiResponse<ProductDto>>> Create([FromForm] CreateProductDto dto)
         {
             try
             {
-                var created = await _productService.CreateAsync(dto);
+                string? imageUrl = null;
+                if (dto.ImageFile != null)
+                {
+                    imageUrl = await _cloudinaryService.UploadImageAsync(dto.ImageFile);
+                }
+
+                var created = await _productService.CreateAsync(dto, imageUrl);
                 return CreatedAtAction(nameof(GetById), new { id = created.Id },
                     ApiResponse<ProductDto>.SuccessResponse(created, "Product created successfully", 201));
             }
@@ -72,13 +71,18 @@ namespace MyApp.Controllers
             }
         }
 
-        // PUT: api/products/5
         [HttpPut("{id}")]
-        public async Task<ActionResult<ApiResponse<ProductDto>>> Update(int id, [FromBody] UpdateProductDto dto)
+        public async Task<ActionResult<ApiResponse<ProductDto>>> Update(int id, [FromForm] UpdateProductDto dto)
         {
             try
             {
-                var updated = await _productService.UpdateAsync(id, dto);
+                string? imageUrl = null;
+                if (dto.ImageFile != null)
+                {
+                    imageUrl = await _cloudinaryService.UploadImageAsync(dto.ImageFile);
+                }
+
+                var updated = await _productService.UpdateAsync(id, dto, imageUrl);
                 if (updated == null)
                     return NotFound(ApiResponse<ProductDto>.FailResponse("Product not found", 404));
 
@@ -90,7 +94,6 @@ namespace MyApp.Controllers
             }
         }
 
-        // DELETE: api/products/5
         [HttpDelete("{id}")]
         public async Task<ActionResult<ApiResponse<object>>> Delete(int id)
         {

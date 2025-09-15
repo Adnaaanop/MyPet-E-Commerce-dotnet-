@@ -25,7 +25,7 @@ namespace MyApp.Controllers
         private int GetUserId() =>
             int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-        // GET: api/cart
+        // api/cart
         [HttpGet]
         public async Task<ActionResult<ApiResponse<IEnumerable<CartItemDto>>>> GetUserCart()
         {
@@ -41,7 +41,7 @@ namespace MyApp.Controllers
             }
         }
 
-        // POST: api/cart/add
+        // api/cart/add
         [HttpPost("add")]
         public async Task<ActionResult<ApiResponse<CartItemDto>>> AddItem([FromBody] AddCartItemRequest dto)
         {
