@@ -47,7 +47,6 @@ namespace MyApp
                 };
             });
 
-
             // Repositories
             builder.Services.AddScoped<IUserRepository, UserRepository>();
             builder.Services.AddScoped<IProductRepository, ProductRepository>();
@@ -55,6 +54,7 @@ namespace MyApp
             builder.Services.AddScoped<ICartRepository, CartRepository>();
             builder.Services.AddScoped<IWishlistRepository, WishlistRepository>();
             builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+            builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>(); // ✅ added
 
             // Services
             builder.Services.AddScoped<IAuthService, AuthService>();
@@ -67,9 +67,8 @@ namespace MyApp
 
             builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
-
-
             builder.Services.AddControllers();
+
             //Validators
             //builder.Services.AddFluentValidationAutoValidation();
             //builder.Services.AddValidatorsFromAssemblyContaining<CreateProductDtoValidator>();
@@ -83,7 +82,7 @@ namespace MyApp
                     Version = "v1"
                 });
 
-                // 🔑 Add JWT Bearer Auth
+                // Adding JWT Bearer Auth
                 c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
                 {
                     Name = "Authorization",
@@ -95,34 +94,32 @@ namespace MyApp
                 });
 
                 c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
-    {
-        {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-            {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
                 {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            new string[] {}
-        }
-    });
+                    {
+                        new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+                        {
+                            Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                            {
+                                Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                                Id = "Bearer"
+                            }
+                        },
+                        new string[] {}
+                    }
+                });
             });
-
 
             var app = builder.Build();
 
-
-
-            // 🔹 Run migrations + seed database
-
+            // Run migrations and seed database
             using (var scope = app.Services.CreateScope())
             {
                 var services = scope.ServiceProvider;
                 await DbInitializer.InitializeAsync(services);
             }
+
             app.UseMiddleware<ErrorHandlingMiddleware>();
+
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
             {

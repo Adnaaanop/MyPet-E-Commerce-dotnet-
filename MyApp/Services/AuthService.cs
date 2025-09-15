@@ -5,6 +5,7 @@ using MyApp.Repositories.Interfaces;
 using MyApp.Services.Interfaces;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace MyApp.Services
@@ -12,21 +13,24 @@ namespace MyApp.Services
     public class AuthService : IAuthService
     {
         private readonly IUserRepository _userRepository;
+        private readonly IRefreshTokenRepository _refreshTokenRepository;
         private readonly IConfiguration _config;
 
-        public AuthService(IUserRepository userRepository, IConfiguration config)
+        public AuthService(
+            IUserRepository userRepository,
+            IRefreshTokenRepository refreshTokenRepository,
+            IConfiguration config)
         {
             _userRepository = userRepository;
+            _refreshTokenRepository = refreshTokenRepository;
             _config = config;
         }
 
         public async Task<AuthResponse?> RegisterAsync(RegisterRequest request)
         {
-            // check if email exists
             var existingUser = await _userRepository.GetByEmailAsync(request.Email);
             if (existingUser != null) return null;
 
-            // hash password with bcrypt
             string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
             var user = new User
@@ -41,7 +45,7 @@ namespace MyApp.Services
             await _userRepository.AddAsync(user);
             await _userRepository.SaveChangesAsync();
 
-            return GenerateAuthResponse(user);
+            return await GenerateAuthResponse(user);
         }
 
         public async Task<AuthResponse?> LoginAsync(LoginRequest request)
@@ -49,7 +53,6 @@ namespace MyApp.Services
             var user = await _userRepository.GetByEmailAsync(request.Email);
             if (user == null) return null;
 
-            // 🚫 Check if user is blocked
             if (!user.IsActive)
                 return new AuthResponse
                 {
@@ -57,14 +60,15 @@ namespace MyApp.Services
                     Name = user.Name,
                     Email = user.Email,
                     Role = user.Role,
-                    Token = null // No token for blocked accounts
+                    AccessToken = string.Empty,
+                    RefreshToken = string.Empty,
+                    ExpiresAt = DateTime.UtcNow
                 };
 
-            // verify bcrypt password
             if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
                 return null;
 
-            return GenerateAuthResponse(user);
+            return await GenerateAuthResponse(user);
         }
 
         public async Task<User?> GetUserByEmailAsync(string email)
@@ -72,9 +76,51 @@ namespace MyApp.Services
             return await _userRepository.GetByEmailAsync(email);
         }
 
-        private AuthResponse GenerateAuthResponse(User user)
+        // ✅ Refresh token flow
+        public async Task<RefreshResponse?> RefreshTokenAsync(RefreshRequest request)
         {
-            var token = GenerateJwtToken(user);
+            var existing = await _refreshTokenRepository.GetByTokenAsync(request.RefreshToken);
+            if (existing == null || !existing.IsActive) return null;
+
+            var user = existing.User;
+            var newJwt = GenerateJwtToken(user);
+            var newRefresh = GenerateRefreshToken(user.Id);
+
+            // revoke old
+            existing.RevokedAt = DateTime.UtcNow;
+            await _refreshTokenRepository.UpdateAsync(existing);
+
+            // save new
+            await _refreshTokenRepository.AddAsync(newRefresh);
+            await _refreshTokenRepository.SaveChangesAsync();
+
+            return new RefreshResponse
+            {
+                AccessToken = newJwt,
+                RefreshToken = newRefresh.Token,
+                ExpiresAt = DateTime.UtcNow.AddMinutes(int.Parse(_config["Jwt:ExpireMinutes"]!))
+            };
+        }
+
+        public async Task RevokeRefreshTokenAsync(string refreshToken)
+        {
+            var existing = await _refreshTokenRepository.GetByTokenAsync(refreshToken);
+            if (existing != null && existing.IsActive)
+            {
+                existing.RevokedAt = DateTime.UtcNow;
+                await _refreshTokenRepository.UpdateAsync(existing);
+                await _refreshTokenRepository.SaveChangesAsync();
+            }
+        }
+
+        // ✅ Helpers
+        private async Task<AuthResponse> GenerateAuthResponse(User user)
+        {
+            var jwt = GenerateJwtToken(user);
+            var refresh = GenerateRefreshToken(user.Id);
+
+            await _refreshTokenRepository.AddAsync(refresh);
+            await _refreshTokenRepository.SaveChangesAsync();
 
             return new AuthResponse
             {
@@ -82,7 +128,9 @@ namespace MyApp.Services
                 Name = user.Name,
                 Email = user.Email,
                 Role = user.Role,
-                Token = token
+                AccessToken = jwt,
+                RefreshToken = refresh.Token,
+                ExpiresAt = DateTime.UtcNow.AddMinutes(int.Parse(_config["Jwt:ExpireMinutes"]!))
             };
         }
 
@@ -107,6 +155,27 @@ namespace MyApp.Services
             );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        // 🔑 Generate strong refresh token (~344 chars, similar to JWT length)
+        private RefreshToken GenerateRefreshToken(int userId)
+        {
+            int expireDays = int.TryParse(_config["Jwt:RefreshTokenExpireDays"], out var days)
+                ? days
+                : 7; // fallback default
+
+            var randomBytes = new byte[256]; // 256 bytes = 2048 bits
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(randomBytes);
+            }
+
+            return new RefreshToken
+            {
+                UserId = userId,
+                Token = Convert.ToBase64String(randomBytes),
+                ExpiresAt = DateTime.UtcNow.AddDays(expireDays)
+            };
         }
     }
 }

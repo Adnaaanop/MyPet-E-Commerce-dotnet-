@@ -9,7 +9,7 @@ public class Pet
     public decimal Price { get; set; }
     public string Description { get; set; } = null!;
     public string ImageUrl { get; set; } = null!;
-    public string Category { get; set; } = null!; // Dog, Cat, Bird etc.
+    public string Category { get; set; } = null!; // Dog, Cat, Bird 
     public int Stock { get; set; } = 0;
 
     public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();

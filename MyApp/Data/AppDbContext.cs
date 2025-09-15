@@ -14,6 +14,7 @@ namespace MyApp.Data
         public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
         public DbSet<Order> Orders => Set<Order>();
         public DbSet<OrderItem> OrderItems => Set<OrderItem>();
+        public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>(); // ✅ NEW
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -81,6 +82,13 @@ namespace MyApp.Data
                 .HasOne(oi => oi.Pet)
                 .WithMany(p => p.OrderItems)
                 .HasForeignKey(oi => oi.PetId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // ✅ RefreshToken
+            modelBuilder.Entity<RefreshToken>()
+                .HasOne(rt => rt.User)
+                .WithMany(u => u.RefreshTokens)
+                .HasForeignKey(rt => rt.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
     }

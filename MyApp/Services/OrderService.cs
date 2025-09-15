@@ -56,5 +56,35 @@ namespace MyApp.Services
             await _orderRepository.DeleteAsync(id);
             return true;
         }
+
+        //Update orderstatus for admin
+
+        public async Task<OrderDto?> UpdateOrderStatusAsync(int orderId, string newStatus)
+        {
+            var order = await _orderRepository.GetByIdAsync(orderId);
+            if (order == null) return null;
+
+            order.Status = newStatus;
+            await _orderRepository.UpdateAsync(order);
+
+            return _mapper.Map<OrderDto>(order);
+        }
+
+
+        // ✅ Cancel Order
+        public async Task<OrderDto?> CancelOrderAsync(int id, int userId)
+        {
+            var order = await _orderRepository.GetByIdAsync(id);
+            if (order == null || order.UserId != userId)
+                return null;
+
+            if (order.Status == "Cancelled" || order.Status == "Delivered")
+                return null; // already cancelled or completed
+
+            order.Status = "Cancelled";
+            await _orderRepository.UpdateAsync(order);
+
+            return _mapper.Map<OrderDto>(order);
+        }
     }
 }

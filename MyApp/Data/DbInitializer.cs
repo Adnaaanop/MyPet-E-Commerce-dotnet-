@@ -16,7 +16,7 @@ namespace MyApp.Data
             // Seed only if empty
             if (!await ctx.Users.AnyAsync())
             {
-                // NOTE: temporary plain hash placeholder; Phase 2 will switch to Identity or a proper hasher
+                // temporary plain hash placeholder; 
                 var admin = new User
                 {
                     Name = "Super Admin",

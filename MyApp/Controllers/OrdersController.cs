@@ -2,10 +2,14 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MyApp.DTOs.Orders;
+using MyApp.DTOs.Common;
 using MyApp.Entities;
 using MyApp.Services.Interfaces;
 using System.Security.Claims;
-//using MyApp.DTOs.Cart;
+using System.Collections.Generic;
+using System.Linq;
+using System;
+using System.Threading.Tasks;
 
 namespace MyApp.Controllers
 {
@@ -30,60 +34,123 @@ namespace MyApp.Controllers
 
         // GET: api/orders
         [HttpGet]
-        public async Task<IActionResult> GetMyOrders()
+        public async Task<ActionResult<ApiResponse<IEnumerable<OrderDto>>>> GetMyOrders()
         {
-            var userId = GetUserId();
-            var orders = await _orderService.GetOrdersByUserIdAsync(userId);
-            var orderDtos = _mapper.Map<IEnumerable<OrderDto>>(orders);
-            return Ok(orderDtos);
+            try
+            {
+                var userId = GetUserId();
+                var orders = await _orderService.GetOrdersByUserIdAsync(userId);
+                var orderDtos = _mapper.Map<IEnumerable<OrderDto>>(orders);
+                return Ok(ApiResponse<IEnumerable<OrderDto>>.SuccessResponse(orderDtos, "Orders fetched successfully"));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<IEnumerable<OrderDto>>.FailResponse("Failed to fetch orders", 500, new List<string> { ex.Message }));
+            }
         }
 
         // GET: api/orders/{id}
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetOrder(int id)
+        public async Task<ActionResult<ApiResponse<OrderDto>>> GetOrder(int id)
         {
-            var userId = GetUserId();
-            var order = await _orderService.GetOrderByIdAsync(id);
-            if (order == null || order.UserId != userId)
-                return NotFound("Order not found or not authorized.");
+            try
+            {
+                var userId = GetUserId();
+                var order = await _orderService.GetOrderByIdAsync(id);
+                if (order == null || order.UserId != userId)
+                    return NotFound(ApiResponse<OrderDto>.FailResponse("Order not found or not authorized.", 404));
 
-            var orderDto = _mapper.Map<OrderDto>(order);
-            return Ok(orderDto);
+                var orderDto = _mapper.Map<OrderDto>(order);
+                return Ok(ApiResponse<OrderDto>.SuccessResponse(orderDto, "Order fetched successfully"));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<OrderDto>.FailResponse("Failed to fetch order", 500, new List<string> { ex.Message }));
+            }
         }
 
         // POST: api/orders
         [HttpPost]
-        public async Task<IActionResult> PlaceOrder([FromBody] CreateOrderRequest request)
+        public async Task<ActionResult<ApiResponse<OrderDto>>> PlaceOrder([FromBody] CreateOrderRequest request)
         {
-            var userId = GetUserId();
-
-            // ✅ Get entities instead of DTOs
-            var cart = await _cartService.GetUserCartEntitiesAsync(userId);
-            if (cart == null || !cart.Any())
-                return BadRequest("Cart is empty.");
-
-            var order = new Order
+            try
             {
-                UserId = userId,
-                Address = request.Address,
-                Total = cart.Sum(c => c.Quantity *
-                                     (c.Product?.Price ?? c.Pet?.Price ?? 0)),
-                Items = cart.Select(c => new OrderItem
+                var userId = GetUserId();
+                var cart = await _cartService.GetUserCartEntitiesAsync(userId);
+
+                if (cart == null || !cart.Any())
+                    return BadRequest(ApiResponse<OrderDto>.FailResponse("Cart is empty.", 400));
+
+                var order = new Order
                 {
-                    ProductId = c.ProductId,
-                    PetId = c.PetId,
-                    Quantity = c.Quantity,
-                    Price = (c.Product?.Price ?? c.Pet?.Price ?? 0)
-                }).ToList()
-            };
+                    UserId = userId,
+                    Address = request.Address,
+                    Total = cart.Sum(c => c.Quantity * (c.Product?.Price ?? c.Pet?.Price ?? 0)),
+                    Items = cart.Select(c => new OrderItem
+                    {
+                        ProductId = c.ProductId,
+                        PetId = c.PetId,
+                        Quantity = c.Quantity,
+                        Price = (c.Product?.Price ?? c.Pet?.Price ?? 0)
+                    }).ToList()
+                };
 
-            var createdOrder = await _orderService.PlaceOrderAsync(order);
+                var createdOrder = await _orderService.PlaceOrderAsync(order);
 
-            // Clear cart after placing order
-            await _cartService.ClearUserCartAsync(userId);
+                await _cartService.ClearUserCartAsync(userId);
 
-            var orderDto = _mapper.Map<OrderDto>(createdOrder);
-            return Ok(orderDto);
+                var orderDto = _mapper.Map<OrderDto>(createdOrder);
+                return Ok(ApiResponse<OrderDto>.SuccessResponse(orderDto, "Order placed successfully"));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<OrderDto>.FailResponse("Failed to place order", 500, new List<string> { ex.Message }));
+            }
+        }
+
+        // PUT: api/orders/{id}/status (Admin only)
+        [HttpPut("{id}/status")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<ApiResponse<OrderDto>>> UpdateOrderStatus(int id, [FromBody] string newStatus)
+        {
+            try
+            {
+                var validStatuses = new[] { "Placed", "Shipped", "Delivered", "Cancelled" };
+                if (!validStatuses.Contains(newStatus))
+                    return BadRequest(ApiResponse<OrderDto>.FailResponse("Invalid status.", 400));
+
+                var updated = await _orderService.UpdateOrderStatusAsync(id, newStatus);
+                if (updated == null)
+                    return NotFound(ApiResponse<OrderDto>.FailResponse("Order not found.", 404));
+
+                var updatedDto = _mapper.Map<OrderDto>(updated);
+                return Ok(ApiResponse<OrderDto>.SuccessResponse(updatedDto, "Order status updated successfully"));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<OrderDto>.FailResponse("Failed to update order status", 500, new List<string> { ex.Message }));
+            }
+        }
+
+        // PUT: api/orders/{id}/cancel
+        [HttpPut("{id}/cancel")]
+        public async Task<ActionResult<ApiResponse<OrderDto>>> CancelOrder(int id)
+        {
+            try
+            {
+                var userId = GetUserId();
+                var cancelledOrder = await _orderService.CancelOrderAsync(id, userId);
+
+                if (cancelledOrder == null)
+                    return BadRequest(ApiResponse<OrderDto>.FailResponse("Order cannot be cancelled.", 400));
+
+                var cancelledDto = _mapper.Map<OrderDto>(cancelledOrder);
+                return Ok(ApiResponse<OrderDto>.SuccessResponse(cancelledDto, "Order cancelled successfully"));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<OrderDto>.FailResponse("Failed to cancel order", 500, new List<string> { ex.Message }));
+            }
         }
     }
 }

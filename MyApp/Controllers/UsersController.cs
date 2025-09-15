@@ -1,8 +1,12 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MyApp.DTOs.Users;
+using MyApp.DTOs.Common;
 using MyApp.Services.Interfaces;
 using System.Security.Claims;
+using System.Collections.Generic;
+using System;
+using System.Threading.Tasks;
 
 namespace MyApp.Controllers
 {
@@ -21,62 +25,120 @@ namespace MyApp.Controllers
         private int GetUserId() =>
             int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-        // 🔹 GET: api/users/me
+        // GET: api/users/me
         [HttpGet("me")]
-        public async Task<IActionResult> GetMyProfile()
+        public async Task<ActionResult<ApiResponse<UserDto>>> GetMyProfile()
         {
-            var userId = GetUserId();
-            var user = await _userService.GetUserByIdAsync(userId);
-            if (user == null) return NotFound("User not found.");
-            return Ok(user);
+            try
+            {
+                var userId = GetUserId();
+                var user = await _userService.GetUserByIdAsync(userId);
+
+                if (user == null)
+                    return NotFound(ApiResponse<UserDto>.FailResponse("User not found.", 404));
+
+                return Ok(ApiResponse<UserDto>.SuccessResponse(user, "Profile fetched successfully"));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<UserDto>.FailResponse("Failed to fetch profile", 500, new List<string> { ex.Message }));
+            }
         }
 
-        // 🔹 PUT: api/users/me
+        // PUT: api/users/me
         [HttpPut("me")]
-        public async Task<IActionResult> UpdateMyProfile([FromBody] UpdateUserDto dto)
+        public async Task<ActionResult<ApiResponse<UserDto>>> UpdateMyProfile([FromBody] UpdateUserDto dto)
         {
-            var userId = GetUserId();
-            var updatedUser = await _userService.UpdateUserAsync(userId, dto);
-            return Ok(updatedUser);
+            try
+            {
+                var userId = GetUserId();
+                var updatedUser = await _userService.UpdateUserAsync(userId, dto);
+
+                if (updatedUser == null)
+                    return NotFound(ApiResponse<UserDto>.FailResponse("User not found.", 404));
+
+                return Ok(ApiResponse<UserDto>.SuccessResponse(updatedUser, "Profile updated successfully"));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<UserDto>.FailResponse("Failed to update profile", 500, new List<string> { ex.Message }));
+            }
         }
 
-        // 🔹 GET: api/users (Admin only)
+        // GET: api/users (Admin only)
         [HttpGet]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetAllUsers()
+        public async Task<ActionResult<ApiResponse<IEnumerable<UserDto>>>> GetAllUsers()
         {
-            var users = await _userService.GetAllUsersAsync();
-            return Ok(users);
+            try
+            {
+                var users = await _userService.GetAllUsersAsync();
+                return Ok(ApiResponse<IEnumerable<UserDto>>.SuccessResponse(users, "Users fetched successfully"));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<IEnumerable<UserDto>>.FailResponse("Failed to fetch users", 500, new List<string> { ex.Message }));
+            }
         }
 
-        // 🔹 PUT: api/users/{id}/block (Admin only)
+        // PUT: api/users/{id}/block (Admin only)
         [HttpPut("{id}/block")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> BlockUser(int id)
+        public async Task<ActionResult<ApiResponse<object>>> BlockUser(int id)
         {
-            var success = await _userService.BlockUserAsync(id);
-            if (!success) return NotFound("User not found.");
-            return Ok("User has been blocked.");
+            try
+            {
+                var success = await _userService.BlockUserAsync(id);
+
+                if (!success)
+                    return NotFound(ApiResponse<object>.FailResponse("User not found.", 404));
+
+                return Ok(ApiResponse<object>.SuccessResponse(null, "User has been blocked"));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.FailResponse("Failed to block user", 500, new List<string> { ex.Message }));
+            }
         }
 
-        // 🔹 PUT: api/users/{id}/unblock (Admin only)
+        // PUT: api/users/{id}/unblock (Admin only)
         [HttpPut("{id}/unblock")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> UnblockUser(int id)
+        public async Task<ActionResult<ApiResponse<object>>> UnblockUser(int id)
         {
-            var success = await _userService.UnblockUserAsync(id);
-            if (!success) return NotFound("User not found.");
-            return Ok("User has been unblocked.");
+            try
+            {
+                var success = await _userService.UnblockUserAsync(id);
+
+                if (!success)
+                    return NotFound(ApiResponse<object>.FailResponse("User not found.", 404));
+
+                return Ok(ApiResponse<object>.SuccessResponse(null, "User has been unblocked"));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.FailResponse("Failed to unblock user", 500, new List<string> { ex.Message }));
+            }
         }
 
-        // 🔹 DELETE: api/users/{id} (Admin only)
+        // DELETE: api/users/{id} (Admin only)
         [HttpDelete("{id}")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> DeleteUser(int id)
+        public async Task<ActionResult<ApiResponse<object>>> DeleteUser(int id)
         {
-            var success = await _userService.DeleteUserAsync(id);
-            if (!success) return NotFound("User not found.");
-            return Ok("User deleted.");
+            try
+            {
+                var success = await _userService.DeleteUserAsync(id);
+
+                if (!success)
+                    return NotFound(ApiResponse<object>.FailResponse("User not found.", 404));
+
+                return Ok(ApiResponse<object>.SuccessResponse(null, "User deleted successfully"));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ApiResponse<object>.FailResponse("Failed to delete user", 500, new List<string> { ex.Message }));
+            }
         }
     }
 }

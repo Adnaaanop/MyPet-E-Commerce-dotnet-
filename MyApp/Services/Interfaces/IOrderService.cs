@@ -11,5 +11,10 @@ namespace MyApp.Services.Interfaces
         Task<OrderDto> PlaceOrderAsync(Order order);
         Task<OrderDto> UpdateOrderAsync(Order order);
         Task<bool> DeleteOrderAsync(int id);
+
+        // ✅ New
+        Task<OrderDto?> CancelOrderAsync(int id, int userId);
+        Task<OrderDto?> UpdateOrderStatusAsync(int orderId, string newStatus);
+
     }
 }

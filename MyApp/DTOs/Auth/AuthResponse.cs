@@ -6,6 +6,12 @@
         public string Name { get; set; } = null!;
         public string Email { get; set; } = null!;
         public string Role { get; set; } = null!;
-        public string Token { get; set; } = null!;
+
+        // Tokens
+        public string AccessToken { get; set; } = null!;
+        public string RefreshToken { get; set; } = null!;
+
+        // Expiry info (optional but helpful for frontend)
+        public DateTime ExpiresAt { get; set; }
     }
 }

@@ -8,5 +8,9 @@ namespace MyApp.Services.Interfaces
         Task<AuthResponse?> RegisterAsync(RegisterRequest request);
         Task<AuthResponse?> LoginAsync(LoginRequest request);
         Task<User?> GetUserByEmailAsync(string email);
+
+        // ✅ New methods
+        Task<RefreshResponse?> RefreshTokenAsync(RefreshRequest request);
+        Task RevokeRefreshTokenAsync(string refreshToken);
     }
 }
