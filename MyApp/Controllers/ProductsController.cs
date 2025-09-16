@@ -32,7 +32,7 @@ namespace MyApp.Controllers
             {
                 var products = await _productService.GetAllFilteredAsync(category, search, sortOrder);
 
-                // ✅ Pagination
+                // Pagination
                 if (pageSize > 0)
                 {
                     products = products.Skip((page - 1) * pageSize).Take(pageSize);

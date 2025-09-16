@@ -21,9 +21,9 @@ namespace MyApp.Services
             return user == null ? null : _mapper.Map<UserDto>(user);
         }
 
-        public async Task<IEnumerable<UserDto>> GetAllUsersAsync()
+        public async Task<IEnumerable<UserDto>> GetAllUsersAsync(string? role = null, string? status = null, string? search = null)
         {
-            var users = await _userRepository.GetAllAsync();
+            var users = await _userRepository.GetAllAsync(role, status, search);
             return _mapper.Map<IEnumerable<UserDto>>(users);
         }
 

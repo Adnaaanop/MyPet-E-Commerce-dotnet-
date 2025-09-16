@@ -6,7 +6,13 @@ namespace MyApp.Repositories.Interfaces
     {
         Task<User?> GetByIdAsync(int id);
         Task<User?> GetByEmailAsync(string email);
-        Task<IEnumerable<User>> GetAllAsync();
+
+        // ✅ Updated to support filtering
+        Task<IEnumerable<User>> GetAllAsync(
+            string? role = null,
+            string? status = null,
+            string? search = null);
+
         Task AddAsync(User user);
         Task UpdateAsync(User user);
         Task DeleteAsync(User user);
