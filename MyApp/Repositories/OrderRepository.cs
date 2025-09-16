@@ -2,6 +2,7 @@
 using MyApp.Entities;
 using MyApp.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
+
 namespace MyApp.Repositories
 {
     public class OrderRepository : IOrderRepository
@@ -13,11 +14,38 @@ namespace MyApp.Repositories
             _context = context;
         }
 
-        public async Task<IEnumerable<Order>> GetAllAsync()
+        // ✅ Enhanced GetAllAsync with filter, sort, pagination
+        public async Task<IEnumerable<Order>> GetAllAsync(
+            string? status = null,
+            string? sort = null,
+            int page = 1,
+            int pageSize = 10)
         {
-            return await _context.Orders
-                                 .Include(o => o.Items)
-                                 .ToListAsync();
+            var query = _context.Orders
+                                .Include(o => o.Items)
+                                .AsQueryable();
+
+            // Filter by status
+            if (!string.IsNullOrEmpty(status))
+            {
+                query = query.Where(o => o.Status == status);
+            }
+
+            // Sorting
+            query = sort?.ToLower() switch
+            {
+                "newest" => query.OrderByDescending(o => o.PlacedAt),
+                "oldest" => query.OrderBy(o => o.PlacedAt),
+                "totallow" => query.OrderBy(o => o.Total),
+                "totalhigh" => query.OrderByDescending(o => o.Total),
+                _ => query.OrderByDescending(o => o.PlacedAt) // default: newest
+            };
+
+            // Pagination
+            query = query.Skip((page - 1) * pageSize)
+                         .Take(pageSize);
+
+            return await query.ToListAsync();
         }
 
         public async Task<Order> GetByIdAsync(int id)

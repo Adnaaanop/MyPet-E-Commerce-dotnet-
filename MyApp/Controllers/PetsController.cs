@@ -20,11 +20,23 @@ namespace MyApp.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<ApiResponse<IEnumerable<PetDto>>>> GetAll()
+        public async Task<ActionResult<ApiResponse<IEnumerable<PetDto>>>> GetAll(
+            [FromQuery] string? category,
+            [FromQuery] string? search,
+            [FromQuery] string? sortOrder,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 0)
         {
             try
             {
-                var pets = await _petService.GetAllAsync();
+                var pets = await _petService.GetAllFilteredAsync(category, search, sortOrder);
+
+                // ✅ Pagination (optional)
+                if (pageSize > 0)
+                {
+                    pets = pets.Skip((page - 1) * pageSize).Take(pageSize);
+                }
+
                 return Ok(ApiResponse<IEnumerable<PetDto>>.SuccessResponse(pets, "Pets fetched successfully"));
             }
             catch (Exception ex)

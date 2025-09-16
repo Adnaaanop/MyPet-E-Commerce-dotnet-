@@ -19,17 +19,31 @@ namespace MyApp.Controllers
             _cloudinaryService = cloudinaryService;
         }
 
+        // GET: api/products?category=&search=&sortOrder=&page=&pageSize=
         [HttpGet]
-        public async Task<ActionResult<ApiResponse<IEnumerable<ProductDto>>>> GetAll()
+        public async Task<ActionResult<ApiResponse<IEnumerable<ProductDto>>>> GetAll(
+            [FromQuery] string? category,
+            [FromQuery] string? search,
+            [FromQuery] string? sortOrder,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 0)
         {
             try
             {
-                var products = await _productService.GetAllAsync();
+                var products = await _productService.GetAllFilteredAsync(category, search, sortOrder);
+
+                // ✅ Pagination
+                if (pageSize > 0)
+                {
+                    products = products.Skip((page - 1) * pageSize).Take(pageSize);
+                }
+
                 return Ok(ApiResponse<IEnumerable<ProductDto>>.SuccessResponse(products, "Products fetched successfully"));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ApiResponse<IEnumerable<ProductDto>>.FailResponse("Failed to fetch products", 500, new List<string> { ex.Message }));
+                return StatusCode(500, ApiResponse<IEnumerable<ProductDto>>.FailResponse(
+                    "Failed to fetch products", 500, new List<string> { ex.Message }));
             }
         }
 
@@ -46,7 +60,8 @@ namespace MyApp.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ApiResponse<ProductDto>.FailResponse("Failed to fetch product", 500, new List<string> { ex.Message }));
+                return StatusCode(500, ApiResponse<ProductDto>.FailResponse(
+                    "Failed to fetch product", 500, new List<string> { ex.Message }));
             }
         }
 
@@ -57,9 +72,7 @@ namespace MyApp.Controllers
             {
                 string? imageUrl = null;
                 if (dto.ImageFile != null)
-                {
                     imageUrl = await _cloudinaryService.UploadImageAsync(dto.ImageFile);
-                }
 
                 var created = await _productService.CreateAsync(dto, imageUrl);
                 return CreatedAtAction(nameof(GetById), new { id = created.Id },
@@ -67,7 +80,8 @@ namespace MyApp.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ApiResponse<ProductDto>.FailResponse("Failed to create product", 500, new List<string> { ex.Message }));
+                return StatusCode(500, ApiResponse<ProductDto>.FailResponse(
+                    "Failed to create product", 500, new List<string> { ex.Message }));
             }
         }
 
@@ -78,9 +92,7 @@ namespace MyApp.Controllers
             {
                 string? imageUrl = null;
                 if (dto.ImageFile != null)
-                {
                     imageUrl = await _cloudinaryService.UploadImageAsync(dto.ImageFile);
-                }
 
                 var updated = await _productService.UpdateAsync(id, dto, imageUrl);
                 if (updated == null)
@@ -90,7 +102,8 @@ namespace MyApp.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ApiResponse<ProductDto>.FailResponse("Failed to update product", 500, new List<string> { ex.Message }));
+                return StatusCode(500, ApiResponse<ProductDto>.FailResponse(
+                    "Failed to update product", 500, new List<string> { ex.Message }));
             }
         }
 
@@ -107,7 +120,8 @@ namespace MyApp.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ApiResponse<object>.FailResponse("Failed to delete product", 500, new List<string> { ex.Message }));
+                return StatusCode(500, ApiResponse<object>.FailResponse(
+                    "Failed to delete product", 500, new List<string> { ex.Message }));
             }
         }
     }

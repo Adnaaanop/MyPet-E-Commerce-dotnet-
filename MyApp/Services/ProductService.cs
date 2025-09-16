@@ -29,6 +29,13 @@ namespace MyApp.Services
             return _mapper.Map<IEnumerable<ProductDto>>(products);
         }
 
+        // ✅ NEW: Get all products with optional filtering, searching, and sorting
+        public async Task<IEnumerable<ProductDto>> GetAllFilteredAsync(string? category, string? search, string? sortOrder)
+        {
+            var products = await _productRepository.GetAllFilteredAsync(category, search, sortOrder);
+            return _mapper.Map<IEnumerable<ProductDto>>(products);
+        }
+
         public async Task<ProductDto> CreateAsync(CreateProductDto dto, string? imageUrl)
         {
             var product = _mapper.Map<Product>(dto);

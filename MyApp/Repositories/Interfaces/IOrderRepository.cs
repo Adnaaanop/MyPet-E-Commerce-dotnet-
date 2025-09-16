@@ -4,7 +4,13 @@ namespace MyApp.Repositories.Interfaces
 {
     public interface IOrderRepository
     {
-        Task<IEnumerable<Order>> GetAllAsync();
+        // ✅ Enhanced GetAllAsync with optional filter, sort, and pagination
+        Task<IEnumerable<Order>> GetAllAsync(
+            string? status = null,
+            string? sort = null,
+            int page = 1,
+            int pageSize = 10);
+
         Task<Order> GetByIdAsync(int id);
         Task<IEnumerable<Order>> GetByUserIdAsync(int userId);
         Task<Order> AddAsync(Order order);

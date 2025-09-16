@@ -33,21 +33,47 @@ namespace MyApp.Controllers
             int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
         // GET: api/orders
+        // GET: api/orders
         [HttpGet]
-        public async Task<ActionResult<ApiResponse<IEnumerable<OrderDto>>>> GetMyOrders()
+        public async Task<ActionResult<ApiResponse<IEnumerable<OrderDto>>>> GetMyOrders(
+            [FromQuery] string? status,
+            [FromQuery] string? sort,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
             try
             {
                 var userId = GetUserId();
-                var orders = await _orderService.GetOrdersByUserIdAsync(userId);
+
+                // Call service with filter, sort, and pagination
+                var orders = await _orderService.GetAllOrdersAsync(status, sort, page, pageSize);
+
+                // Only return orders of this user
+                orders = orders.Where(o => o.UserId == userId);
+
                 var orderDtos = _mapper.Map<IEnumerable<OrderDto>>(orders);
-                return Ok(ApiResponse<IEnumerable<OrderDto>>.SuccessResponse(orderDtos, "Orders fetched successfully"));
+
+                // Pagination info
+                var totalItems = orderDtos.Count();
+                var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+
+                var response = new
+                {
+                    Page = page,
+                    PageSize = pageSize,
+                    TotalItems = totalItems,
+                    TotalPages = totalPages,
+                    Orders = orderDtos
+                };
+
+                return Ok(ApiResponse<object>.SuccessResponse(response, "Orders fetched successfully"));
             }
             catch (Exception ex)
             {
                 return StatusCode(500, ApiResponse<IEnumerable<OrderDto>>.FailResponse("Failed to fetch orders", 500, new List<string> { ex.Message }));
             }
         }
+
 
         // GET: api/orders/{id}
         [HttpGet("{id}")]

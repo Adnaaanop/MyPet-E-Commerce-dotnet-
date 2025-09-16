@@ -29,6 +29,13 @@ namespace MyApp.Services
             return _mapper.Map<IEnumerable<PetDto>>(pets);
         }
 
+        // ✅ NEW: Get all pets with optional filtering, searching, and sorting
+        public async Task<IEnumerable<PetDto>> GetAllFilteredAsync(string? category, string? search, string? sortOrder)
+        {
+            var pets = await _petRepository.GetAllFilteredAsync(category, search, sortOrder);
+            return _mapper.Map<IEnumerable<PetDto>>(pets);
+        }
+
         public async Task<PetDto> CreateAsync(CreatePetDto dto, string? imageUrl)
         {
             var pet = _mapper.Map<Pet>(dto);

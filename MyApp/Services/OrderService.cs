@@ -17,9 +17,14 @@ namespace MyApp.Services
             _mapper = mapper;
         }
 
-        public async Task<IEnumerable<OrderDto>> GetAllOrdersAsync()
+        // ✅ Enhanced GetAllOrdersAsync with filtering, sorting, and pagination
+        public async Task<IEnumerable<OrderDto>> GetAllOrdersAsync(
+            string? status = null,
+            string? sort = null,
+            int page = 1,
+            int pageSize = 10)
         {
-            var orders = await _orderRepository.GetAllAsync();
+            var orders = await _orderRepository.GetAllAsync(status, sort, page, pageSize);
             return _mapper.Map<IEnumerable<OrderDto>>(orders);
         }
 
@@ -57,8 +62,6 @@ namespace MyApp.Services
             return true;
         }
 
-        //Update orderstatus for admin
-
         public async Task<OrderDto?> UpdateOrderStatusAsync(int orderId, string newStatus)
         {
             var order = await _orderRepository.GetByIdAsync(orderId);
@@ -70,8 +73,6 @@ namespace MyApp.Services
             return _mapper.Map<OrderDto>(order);
         }
 
-
-        // ✅ Cancel Order
         public async Task<OrderDto?> CancelOrderAsync(int id, int userId)
         {
             var order = await _orderRepository.GetByIdAsync(id);
