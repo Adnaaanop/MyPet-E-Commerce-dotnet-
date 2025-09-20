@@ -14,10 +14,10 @@ namespace MyApp.Repositories
             _context = context;
         }
 
-        // ✅ Enhanced GetAllAsync with filter, sort, pagination
+        // ✅ Enhanced GetAllAsync with enum filter + numeric sort
         public async Task<IEnumerable<Order>> GetAllAsync(
-            string? status = null,
-            string? sort = null,
+            OrderStatus? status = null,
+            int? sortId = null,
             int page = 1,
             int pageSize = 10)
         {
@@ -25,20 +25,20 @@ namespace MyApp.Repositories
                                 .Include(o => o.Items)
                                 .AsQueryable();
 
-            // Filter by status
-            if (!string.IsNullOrEmpty(status))
+            // Filter by status if provided
+            if (status.HasValue)
             {
-                query = query.Where(o => o.Status == status);
+                query = query.Where(o => o.Status == status.Value);
             }
 
-            // Sorting
-            query = sort?.ToLower() switch
+            // Sorting (numeric)
+            query = sortId switch
             {
-                "newest" => query.OrderByDescending(o => o.PlacedAt),
-                "oldest" => query.OrderBy(o => o.PlacedAt),
-                "totallow" => query.OrderBy(o => o.Total),
-                "totalhigh" => query.OrderByDescending(o => o.Total),
-                _ => query.OrderByDescending(o => o.PlacedAt) // default: newest
+                1 => query.OrderByDescending(o => o.PlacedAt),  // Newest
+                2 => query.OrderBy(o => o.PlacedAt),            // Oldest
+                3 => query.OrderBy(o => o.Total),               // Total Low
+                4 => query.OrderByDescending(o => o.Total),     // Total High
+                _ => query.OrderByDescending(o => o.PlacedAt)   // Default: newest
             };
 
             // Pagination

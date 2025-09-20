@@ -4,10 +4,10 @@ namespace MyApp.Repositories.Interfaces
 {
     public interface IOrderRepository
     {
-        // ✅ Enhanced GetAllAsync with optional filter, sort, and pagination
+        // ✅ Now uses enum + numeric sortId instead of strings
         Task<IEnumerable<Order>> GetAllAsync(
-            string? status = null,
-            string? sort = null,
+            OrderStatus? status = null,
+            int? sortId = null,
             int page = 1,
             int pageSize = 10);
 

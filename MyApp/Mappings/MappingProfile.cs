@@ -28,8 +28,13 @@ namespace MyApp.Mappings
             CreateMap<UpdateUserDto, User>();
 
             // Orders
-            CreateMap<Order, OrderDto>().ReverseMap();
-            CreateMap<CreateOrderRequest, Order>();
+            CreateMap<Order, OrderDto>()
+    // ✅ Convert enum to string for output
+    .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()));
+
+            CreateMap<CreateOrderRequest, Order>()
+                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status));
+
             CreateMap<OrderItem, OrderItemDto>().ReverseMap();
 
             // Cart

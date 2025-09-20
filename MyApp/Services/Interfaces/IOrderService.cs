@@ -5,10 +5,10 @@ namespace MyApp.Services.Interfaces
 {
     public interface IOrderService
     {
-        // ✅ Enhanced GetAllOrdersAsync with filter, sort, and pagination
+        // ✅ Now uses enum + numeric sortId
         Task<IEnumerable<OrderDto>> GetAllOrdersAsync(
-            string? status = null,
-            string? sort = null,
+            OrderStatus? status = null,
+            int? sortId = null,
             int page = 1,
             int pageSize = 10);
 
@@ -18,8 +18,8 @@ namespace MyApp.Services.Interfaces
         Task<OrderDto> UpdateOrderAsync(Order order);
         Task<bool> DeleteOrderAsync(int id);
 
-        // ✅ Admin/User actions
+        // ✅ Admin/User actions now use enum
         Task<OrderDto?> CancelOrderAsync(int id, int userId);
-        Task<OrderDto?> UpdateOrderStatusAsync(int orderId, string newStatus);
+        Task<OrderDto?> UpdateOrderStatusAsync(int orderId, OrderStatus newStatus);
     }
 }

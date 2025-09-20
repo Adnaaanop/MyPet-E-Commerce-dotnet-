@@ -6,10 +6,6 @@ using MyApp.DTOs.Common;
 using MyApp.Entities;
 using MyApp.Services.Interfaces;
 using System.Security.Claims;
-using System.Collections.Generic;
-using System.Linq;
-using System;
-using System.Threading.Tasks;
 
 namespace MyApp.Controllers
 {
@@ -33,11 +29,10 @@ namespace MyApp.Controllers
             int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
         // GET: api/orders
-        // GET: api/orders
         [HttpGet]
-        public async Task<ActionResult<ApiResponse<IEnumerable<OrderDto>>>> GetMyOrders(
-            [FromQuery] string? status,
-            [FromQuery] string? sort,
+        public async Task<ActionResult<ApiResponse<object>>> GetMyOrders(
+            [FromQuery] OrderStatus? status,  // ✅ Now enum
+            [FromQuery] int? sortId,          // ✅ Numeric sort ID
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
         {
@@ -45,16 +40,14 @@ namespace MyApp.Controllers
             {
                 var userId = GetUserId();
 
-                // Call service with filter, sort, and pagination
-                var orders = await _orderService.GetAllOrdersAsync(status, sort, page, pageSize);
+                // Fetch with filters
+                var orders = await _orderService.GetAllOrdersAsync(status, sortId, page, pageSize);
 
-                // Only return orders of this user
-                orders = orders.Where(o => o.UserId == userId);
+                // Filter by current user
+                var userOrders = orders.Where(o => o.UserId == userId).ToList();
 
-                var orderDtos = _mapper.Map<IEnumerable<OrderDto>>(orders);
-
-                // Pagination info
-                var totalItems = orderDtos.Count();
+                // Pagination metadata
+                var totalItems = userOrders.Count;
                 var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
 
                 var response = new
@@ -63,17 +56,16 @@ namespace MyApp.Controllers
                     PageSize = pageSize,
                     TotalItems = totalItems,
                     TotalPages = totalPages,
-                    Orders = orderDtos
+                    Orders = userOrders
                 };
 
                 return Ok(ApiResponse<object>.SuccessResponse(response, "Orders fetched successfully"));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ApiResponse<IEnumerable<OrderDto>>.FailResponse("Failed to fetch orders", 500, new List<string> { ex.Message }));
+                return StatusCode(500, ApiResponse<object>.FailResponse("Failed to fetch orders", 500, new List<string> { ex.Message }));
             }
         }
-
 
         // GET: api/orders/{id}
         [HttpGet("{id}")]
@@ -86,8 +78,7 @@ namespace MyApp.Controllers
                 if (order == null || order.UserId != userId)
                     return NotFound(ApiResponse<OrderDto>.FailResponse("Order not found or not authorized.", 404));
 
-                var orderDto = _mapper.Map<OrderDto>(order);
-                return Ok(ApiResponse<OrderDto>.SuccessResponse(orderDto, "Order fetched successfully"));
+                return Ok(ApiResponse<OrderDto>.SuccessResponse(order, "Order fetched successfully"));
             }
             catch (Exception ex)
             {
@@ -111,6 +102,7 @@ namespace MyApp.Controllers
                 {
                     UserId = userId,
                     Address = request.Address,
+                    Status = request.Status, // ✅ Enum from request
                     Total = cart.Sum(c => c.Quantity * (c.Product?.Price ?? c.Pet?.Price ?? 0)),
                     Items = cart.Select(c => new OrderItem
                     {
@@ -123,10 +115,10 @@ namespace MyApp.Controllers
 
                 var createdOrder = await _orderService.PlaceOrderAsync(order);
 
+                // ✅ Clear user's cart after placing order
                 await _cartService.ClearUserCartAsync(userId);
 
-                var orderDto = _mapper.Map<OrderDto>(createdOrder);
-                return Ok(ApiResponse<OrderDto>.SuccessResponse(orderDto, "Order placed successfully"));
+                return Ok(ApiResponse<OrderDto>.SuccessResponse(createdOrder, "Order placed successfully"));
             }
             catch (Exception ex)
             {
@@ -137,20 +129,15 @@ namespace MyApp.Controllers
         // PUT: api/orders/{id}/status (Admin only)
         [HttpPut("{id}/status")]
         [Authorize(Roles = "Admin")]
-        public async Task<ActionResult<ApiResponse<OrderDto>>> UpdateOrderStatus(int id, [FromBody] string newStatus)
+        public async Task<ActionResult<ApiResponse<OrderDto>>> UpdateOrderStatus(int id, [FromBody] OrderStatus newStatus)
         {
             try
             {
-                var validStatuses = new[] { "Placed", "Shipped", "Delivered", "Cancelled" };
-                if (!validStatuses.Contains(newStatus))
-                    return BadRequest(ApiResponse<OrderDto>.FailResponse("Invalid status.", 400));
-
-                var updated = await _orderService.UpdateOrderStatusAsync(id, newStatus);
-                if (updated == null)
+                var updatedOrder = await _orderService.UpdateOrderStatusAsync(id, newStatus);
+                if (updatedOrder == null)
                     return NotFound(ApiResponse<OrderDto>.FailResponse("Order not found.", 404));
 
-                var updatedDto = _mapper.Map<OrderDto>(updated);
-                return Ok(ApiResponse<OrderDto>.SuccessResponse(updatedDto, "Order status updated successfully"));
+                return Ok(ApiResponse<OrderDto>.SuccessResponse(updatedOrder, "Order status updated successfully"));
             }
             catch (Exception ex)
             {
@@ -170,8 +157,7 @@ namespace MyApp.Controllers
                 if (cancelledOrder == null)
                     return BadRequest(ApiResponse<OrderDto>.FailResponse("Order cannot be cancelled.", 400));
 
-                var cancelledDto = _mapper.Map<OrderDto>(cancelledOrder);
-                return Ok(ApiResponse<OrderDto>.SuccessResponse(cancelledDto, "Order cancelled successfully"));
+                return Ok(ApiResponse<OrderDto>.SuccessResponse(cancelledOrder, "Order cancelled successfully"));
             }
             catch (Exception ex)
             {

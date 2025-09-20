@@ -17,14 +17,14 @@ namespace MyApp.Services
             _mapper = mapper;
         }
 
-        // ✅ Enhanced GetAllOrdersAsync with filtering, sorting, and pagination
+        // ✅ Updated to use enum + numeric sortId
         public async Task<IEnumerable<OrderDto>> GetAllOrdersAsync(
-            string? status = null,
-            string? sort = null,
+            OrderStatus? status = null,
+            int? sortId = null,
             int page = 1,
             int pageSize = 10)
         {
-            var orders = await _orderRepository.GetAllAsync(status, sort, page, pageSize);
+            var orders = await _orderRepository.GetAllAsync(status, sortId, page, pageSize);
             return _mapper.Map<IEnumerable<OrderDto>>(orders);
         }
 
@@ -62,7 +62,8 @@ namespace MyApp.Services
             return true;
         }
 
-        public async Task<OrderDto?> UpdateOrderStatusAsync(int orderId, string newStatus)
+        // ✅ Now uses enum
+        public async Task<OrderDto?> UpdateOrderStatusAsync(int orderId, OrderStatus newStatus)
         {
             var order = await _orderRepository.GetByIdAsync(orderId);
             if (order == null) return null;
@@ -79,10 +80,10 @@ namespace MyApp.Services
             if (order == null || order.UserId != userId)
                 return null;
 
-            if (order.Status == "Cancelled" || order.Status == "Delivered")
+            if (order.Status == OrderStatus.Cancelled || order.Status == OrderStatus.Delivered)
                 return null; // already cancelled or completed
 
-            order.Status = "Cancelled";
+            order.Status = OrderStatus.Cancelled;
             await _orderRepository.UpdateAsync(order);
 
             return _mapper.Map<OrderDto>(order);
