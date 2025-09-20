@@ -8,8 +8,8 @@ namespace MyApp.DTOs.Orders
         public int UserId { get; set; }
         public DateTime PlacedAt { get; set; }
 
-        // ✅ Changed from enum to string for API output
-        public string Status { get; set; } = null!;
+        // ✅ Changed from string to enum
+        public OrderStatus Status { get; set; } = OrderStatus.Placed;
 
         public string Address { get; set; } = null!;
         public decimal Total { get; set; }

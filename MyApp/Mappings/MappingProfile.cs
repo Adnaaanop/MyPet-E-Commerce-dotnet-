@@ -1,11 +1,12 @@
-﻿using MyApp.DTOs.Cart;
-using AutoMapper;
+﻿using AutoMapper;
+using MyApp.DTOs.Cart;
 using MyApp.DTOs.Orders;
 using MyApp.DTOs.Pets;
 using MyApp.DTOs.Products;
 using MyApp.DTOs.Users;
 using MyApp.DTOs.Wishlist;
 using MyApp.Entities;
+using MyApp.Enums;
 
 namespace MyApp.Mappings
 {
@@ -24,18 +25,23 @@ namespace MyApp.Mappings
             CreateMap<UpdateProductDto, Product>();
 
             // Users
-            CreateMap<User, UserDto>().ReverseMap();
-            CreateMap<UpdateUserDto, User>();
+            CreateMap<User, UserDto>()
+           .ForMember(dest => dest.Role, opt => opt.MapFrom(src => src.Role == "Admin" ? UserRole.Admin : UserRole.User))
+           .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.IsActive ? UserStatus.Active : UserStatus.Blocked));
+
+            CreateMap<UpdateUserDto, User>()
+                .ForMember(dest => dest.Role, opt => opt.MapFrom(src => src.Role == UserRole.Admin ? "Admin" : "User"))
+                .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.Status == UserStatus.Active));
+
 
             // Orders
             CreateMap<Order, OrderDto>()
-    // ✅ Convert enum to string for output
-    .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()));
+                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status));
 
             CreateMap<CreateOrderRequest, Order>()
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status));
 
-            CreateMap<OrderItem, OrderItemDto>().ReverseMap();
+            CreateMap<OrderItem, OrderItemDto>();
 
             // Cart
             CreateMap<CartItem, CartItemDto>()

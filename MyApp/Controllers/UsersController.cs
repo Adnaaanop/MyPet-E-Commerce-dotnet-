@@ -1,11 +1,12 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MyApp.DTOs.Users;
 using MyApp.DTOs.Common;
+using MyApp.DTOs.Users;
+using MyApp.Enums;
 using MyApp.Services.Interfaces;
-using System.Security.Claims;
-using System.Collections.Generic;
 using System;
+using System.Collections.Generic;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace MyApp.Controllers
@@ -68,54 +69,32 @@ namespace MyApp.Controllers
         [HttpGet]
         [Authorize(Roles = "Admin")]
         public async Task<ActionResult<ApiResponse<IEnumerable<UserDto>>>> GetAllUsers(
-                   [FromQuery] string? role,
-                   [FromQuery] string? status,
-                   [FromQuery] string? search,
-                   [FromQuery] int page = 1,
-                   [FromQuery] int pageSize = 0)
+       [FromQuery] UserRole? role,
+       [FromQuery] UserStatus? status,
+       [FromQuery] string? search,
+       [FromQuery] int page = 1,
+       [FromQuery] int pageSize = 10)
         {
             try
             {
-                var users = await _userService.GetAllUsersAsync();
+                // Convert enum to string/boolean for filtering in service
+                string? roleStr = role.HasValue ? (role == UserRole.Admin ? "Admin" : "User") : null;
+                string? statusStr = status.HasValue ? (status == UserStatus.Active ? "Active" : "Blocked") : null;
 
-                // Filter by Role
-                if (!string.IsNullOrWhiteSpace(role) && role.ToLower() != "all")
-                {
-                    users = users.Where(u => u.Role.Equals(role, StringComparison.OrdinalIgnoreCase));
-                }
-
-                // Filter by Status (assuming UserDto has IsBlocked property)
-                if (!string.IsNullOrWhiteSpace(status) && status.ToLower() != "all")
-                {
-                    if (status.Equals("active", StringComparison.OrdinalIgnoreCase))
-                        users = users.Where(u => !u.IsActive);
-                    else if (status.Equals("blocked", StringComparison.OrdinalIgnoreCase))
-                        users = users.Where(u => u.IsActive);
-                }
-
-                // Search by name or email
-                if (!string.IsNullOrWhiteSpace(search))
-                {
-                    var lowerSearch = search.ToLower();
-                    users = users.Where(u => u.Name.ToLower().Contains(lowerSearch)
-                                           || u.Email.ToLower().Contains(lowerSearch));
-                }
+                var users = await _userService.GetAllUsersAsync(roleStr, statusStr, search);
 
                 // Pagination
                 if (pageSize > 0)
-                {
                     users = users.Skip((page - 1) * pageSize).Take(pageSize);
-                }
 
-                return Ok(ApiResponse<IEnumerable<UserDto>>.SuccessResponse(
-                    users, "Users fetched successfully"));
+                return Ok(ApiResponse<IEnumerable<UserDto>>.SuccessResponse(users, "Users fetched successfully"));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ApiResponse<IEnumerable<UserDto>>.FailResponse(
-                    "Failed to fetch users", 500, new List<string> { ex.Message }));
+                return StatusCode(500, ApiResponse<IEnumerable<UserDto>>.FailResponse("Failed to fetch users", 500, new List<string> { ex.Message }));
             }
         }
+
 
         // PUT: api/users/{id}/block (Admin only)
         [HttpPut("{id}/block")]

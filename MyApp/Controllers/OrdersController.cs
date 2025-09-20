@@ -31,22 +31,17 @@ namespace MyApp.Controllers
         // GET: api/orders
         [HttpGet]
         public async Task<ActionResult<ApiResponse<object>>> GetMyOrders(
-            [FromQuery] OrderStatus? status,  // ✅ Now enum
-            [FromQuery] int? sortId,          // ✅ Numeric sort ID
+            [FromQuery] OrderStatus? status,
+            [FromQuery] int? sortId,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
         {
             try
             {
                 var userId = GetUserId();
-
-                // Fetch with filters
                 var orders = await _orderService.GetAllOrdersAsync(status, sortId, page, pageSize);
-
-                // Filter by current user
                 var userOrders = orders.Where(o => o.UserId == userId).ToList();
 
-                // Pagination metadata
                 var totalItems = userOrders.Count;
                 var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
 
@@ -102,7 +97,7 @@ namespace MyApp.Controllers
                 {
                     UserId = userId,
                     Address = request.Address,
-                    Status = request.Status, // ✅ Enum from request
+                    Status = request.Status,
                     Total = cart.Sum(c => c.Quantity * (c.Product?.Price ?? c.Pet?.Price ?? 0)),
                     Items = cart.Select(c => new OrderItem
                     {
@@ -114,8 +109,6 @@ namespace MyApp.Controllers
                 };
 
                 var createdOrder = await _orderService.PlaceOrderAsync(order);
-
-                // ✅ Clear user's cart after placing order
                 await _cartService.ClearUserCartAsync(userId);
 
                 return Ok(ApiResponse<OrderDto>.SuccessResponse(createdOrder, "Order placed successfully"));
@@ -129,10 +122,15 @@ namespace MyApp.Controllers
         // PUT: api/orders/{id}/status (Admin only)
         [HttpPut("{id}/status")]
         [Authorize(Roles = "Admin")]
-        public async Task<ActionResult<ApiResponse<OrderDto>>> UpdateOrderStatus(int id, [FromBody] OrderStatus newStatus)
+        public async Task<ActionResult<ApiResponse<OrderDto>>> UpdateOrderStatus(int id, [FromBody] int newStatusId)
         {
             try
             {
+                if (!Enum.IsDefined(typeof(OrderStatus), newStatusId))
+                    return BadRequest(ApiResponse<OrderDto>.FailResponse("Invalid status ID.", 400));
+
+                var newStatus = (OrderStatus)newStatusId;
+
                 var updatedOrder = await _orderService.UpdateOrderStatusAsync(id, newStatus);
                 if (updatedOrder == null)
                     return NotFound(ApiResponse<OrderDto>.FailResponse("Order not found.", 404));

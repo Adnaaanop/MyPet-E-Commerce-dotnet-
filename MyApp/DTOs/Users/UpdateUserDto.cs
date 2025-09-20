@@ -1,10 +1,12 @@
-﻿namespace MyApp.DTOs.Users
+﻿using MyApp.Enums;
+
+namespace MyApp.DTOs.Users
 {
     public class UpdateUserDto
     {
         public string Name { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
-        public string Role { get; set; } = "User";
-        public bool? IsActive { get; set; }
+        public UserRole Role { get; set; } = UserRole.User;
+        public UserStatus? Status { get; set; }
     }
 }
