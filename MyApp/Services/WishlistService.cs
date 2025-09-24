@@ -4,6 +4,7 @@ using MyApp.DTOs.Cart;
 using MyApp.Entities;
 using MyApp.Repositories.Interfaces;
 using MyApp.Services.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace MyApp.Services
 {
@@ -45,7 +46,8 @@ namespace MyApp.Services
             await _wishlistRepository.AddAsync(newItem);
             await _wishlistRepository.SaveChangesAsync();
 
-            return _mapper.Map<WishlistItemDto>(newItem);
+            var addedItem = await _wishlistRepository.GetByIdAsync(newItem.Id);
+            return _mapper.Map<WishlistItemDto>(addedItem);
         }
 
         public async Task<bool> RemoveItemAsync(int userId, int wishlistItemId)
@@ -58,7 +60,6 @@ namespace MyApp.Services
             return true;
         }
 
-        // ✅ Move all items from wishlist to cart
         public async Task<IEnumerable<CartItemDto>> MoveAllToCartAsync(int userId)
         {
             var wishlistItems = await _wishlistRepository.GetByUserIdAsync(userId);
@@ -80,7 +81,6 @@ namespace MyApp.Services
             return await _cartService.GetUserCartAsync(userId);
         }
 
-        // ✅ Move a single wishlist item to cart
         public async Task<CartItemDto?> MoveItemToCartAsync(int userId, int wishlistItemId)
         {
             var item = await _wishlistRepository.GetByIdAsync(wishlistItemId);

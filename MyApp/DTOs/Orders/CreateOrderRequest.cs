@@ -4,9 +4,9 @@ namespace MyApp.DTOs.Orders
 {
     public class CreateOrderRequest
     {
-        public string Address { get; set; } = string.Empty;
-
-        // ✅ Frontend sends numeric ID
+        public string Street { get; set; } = string.Empty;
+        public string City { get; set; } = string.Empty;
+        public string Pincode { get; set; } = string.Empty;
         public OrderStatus Status { get; set; } = OrderStatus.Placed;
     }
 }

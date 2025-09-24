@@ -76,21 +76,22 @@ namespace MyApp.Services
             return await _userRepository.GetByEmailAsync(email);
         }
 
-        // ✅ Refresh token flow
+        // Refresh token flow
         public async Task<RefreshResponse?> RefreshTokenAsync(RefreshRequest request)
         {
             var existing = await _refreshTokenRepository.GetByTokenAsync(request.RefreshToken);
             if (existing == null || !existing.IsActive) return null;
 
             var user = existing.User;
+
             var newJwt = GenerateJwtToken(user);
             var newRefresh = GenerateRefreshToken(user.Id);
 
-            // revoke old
+            // Revoke old refresh token
             existing.RevokedAt = DateTime.UtcNow;
             await _refreshTokenRepository.UpdateAsync(existing);
 
-            // save new
+            // Save new refresh token
             await _refreshTokenRepository.AddAsync(newRefresh);
             await _refreshTokenRepository.SaveChangesAsync();
 
@@ -113,7 +114,7 @@ namespace MyApp.Services
             }
         }
 
-        // ✅ Helpers
+        // Generate AuthResponse (tokens only, controller sets cookies)
         private async Task<AuthResponse> GenerateAuthResponse(User user)
         {
             var jwt = GenerateJwtToken(user);
@@ -157,12 +158,12 @@ namespace MyApp.Services
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        // 🔑 Generate strong refresh token (~344 chars, similar to JWT length)
+        // Generate strong refresh token
         private RefreshToken GenerateRefreshToken(int userId)
         {
             int expireDays = int.TryParse(_config["Jwt:RefreshTokenExpireDays"], out var days)
                 ? days
-                : 7; // fallback default
+                : 7; // default 7 days
 
             var randomBytes = new byte[256]; // 256 bytes = 2048 bits
             using (var rng = RandomNumberGenerator.Create())

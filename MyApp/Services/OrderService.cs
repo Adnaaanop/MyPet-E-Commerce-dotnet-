@@ -3,6 +3,8 @@ using MyApp.DTOs.Orders;
 using MyApp.Entities;
 using MyApp.Repositories.Interfaces;
 using MyApp.Services.Interfaces;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace MyApp.Services
 {
@@ -17,7 +19,6 @@ namespace MyApp.Services
             _mapper = mapper;
         }
 
-        // ✅ Updated to use enum + numeric sortId
         public async Task<IEnumerable<OrderDto>> GetAllOrdersAsync(
             OrderStatus? status = null,
             int? sortId = null,
@@ -62,7 +63,6 @@ namespace MyApp.Services
             return true;
         }
 
-        // ✅ Now uses enum
         public async Task<OrderDto?> UpdateOrderStatusAsync(int orderId, OrderStatus newStatus)
         {
             var order = await _orderRepository.GetByIdAsync(orderId);
@@ -81,7 +81,7 @@ namespace MyApp.Services
                 return null;
 
             if (order.Status == OrderStatus.Cancelled || order.Status == OrderStatus.Delivered)
-                return null; // already cancelled or completed
+                return null;
 
             order.Status = OrderStatus.Cancelled;
             await _orderRepository.UpdateAsync(order);

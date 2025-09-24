@@ -1,21 +1,18 @@
-﻿//using FluentValidation;
-using AutoMapper;
+﻿using AutoMapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using MyApp.Data;
 using MyApp.Helpers;
-using MyApp.Mappings;
 using MyApp.Middlewares;
 using MyApp.Repositories;
 using MyApp.Repositories.Interfaces;
 using MyApp.Services;
 using MyApp.Services.Interfaces;
 using System.Text;
+using Microsoft.OpenApi.Models;
 
-//using MyApp.Validators;
-//using FluentValidation.AspNetCore;
 namespace MyApp
 {
     public class Program
@@ -24,6 +21,7 @@ namespace MyApp
         {
             var builder = WebApplication.CreateBuilder(args);
 
+            // Database
             builder.Services.AddDbContext<AppDbContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
@@ -46,6 +44,20 @@ namespace MyApp
                     IssuerSigningKey = new SymmetricSecurityKey(
                         Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
                 };
+
+                // Read JWT from cookie
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var accessToken = context.Request.Cookies["accessToken"];
+                        if (!string.IsNullOrEmpty(accessToken))
+                        {
+                            context.Token = accessToken;
+                        }
+                        return Task.CompletedTask;
+                    }
+                };
             });
 
             // Repositories
@@ -55,7 +67,7 @@ namespace MyApp
             builder.Services.AddScoped<ICartRepository, CartRepository>();
             builder.Services.AddScoped<IWishlistRepository, WishlistRepository>();
             builder.Services.AddScoped<IOrderRepository, OrderRepository>();
-            builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>(); // ✅ added
+            builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 
             // Services
             builder.Services.AddScoped<IAuthService, AuthService>();
@@ -66,63 +78,75 @@ namespace MyApp
             builder.Services.AddScoped<IWishlistService, WishlistService>();
             builder.Services.AddScoped<IOrderService, OrderService>();
 
-            //Cloudinary
+            // Cloudinary
             builder.Services.Configure<CloudinarySettings>(
-            builder.Configuration.GetSection("CloudinarySettings"));
+                builder.Configuration.GetSection("CloudinarySettings"));
             builder.Services.AddScoped<CloudinaryService>();
-
 
             builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
             builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
-    });
+                .AddJsonOptions(options =>
+                {
+                    options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+                });
 
-            //Validators
-            //builder.Services.AddFluentValidationAutoValidation();
-            //builder.Services.AddValidatorsFromAssemblyContaining<CreateProductDtoValidator>();
+            // CORS for React with credentials
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AllowReactApp", policy =>
+                {
+                    policy.WithOrigins("http://localhost:5173", "https://localhost:5173")
+                          .AllowAnyHeader()
+                          .AllowAnyMethod()
+                          .AllowCredentials();
+                });
+            });
+
+            // Cookie policy (local dev)
+            builder.Services.Configure<CookiePolicyOptions>(options =>
+            {
+                options.HttpOnly = Microsoft.AspNetCore.CookiePolicy.HttpOnlyPolicy.Always;
+                options.Secure = Microsoft.AspNetCore.Http.CookieSecurePolicy.None; // false for local HTTP
+                options.MinimumSameSitePolicy = Microsoft.AspNetCore.Http.SameSiteMode.None; // allow cross-origin
+            });
 
             builder.Services.AddEndpointsApiExplorer();
+            // Inside Main method, replace the existing builder.Services.AddSwaggerGen() with:
             builder.Services.AddSwaggerGen(c =>
             {
-                c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
-                {
-                    Title = "MyApp API",
-                    Version = "v1"
-                });
+                c.SwaggerDoc("v1", new OpenApiInfo { Title = "MyApp API", Version = "v1" });
 
-                // Adding JWT Bearer Auth
-                c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+                // Add JWT Authentication
+                c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
                 {
                     Name = "Authorization",
-                    Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+                    Type = SecuritySchemeType.Http,
                     Scheme = "Bearer",
                     BearerFormat = "JWT",
-                    In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-                    Description = "Enter 'Bearer' [space] and then your valid JWT token.\n\nExample: \"Bearer eyJhbGciOiJIUzI1NiIsInR...\""
+                    In = ParameterLocation.Header,
+                    Description = "Enter 'Bearer' followed by a space and the JWT token (e.g., 'Bearer eyJ...'). For cookie-based auth, use the 'accessToken' cookie value here."
                 });
 
-                c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+                c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
                 {
-                    {
-                        new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-                        {
-                            Reference = new Microsoft.OpenApi.Models.OpenApiReference
-                            {
-                                Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-                                Id = "Bearer"
-                            }
-                        },
-                        new string[] {}
-                    }
-                });
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new string[] {}
+        }
+    });
             });
 
             var app = builder.Build();
 
-            // Run migrations and seed database
+            // Run migrations and seed DB
             using (var scope = app.Services.CreateScope())
             {
                 var services = scope.ServiceProvider;
@@ -131,7 +155,6 @@ namespace MyApp
 
             app.UseMiddleware<ErrorHandlingMiddleware>();
 
-            // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
@@ -139,11 +162,11 @@ namespace MyApp
             }
 
             app.UseHttpsRedirection();
+            app.UseCors("AllowReactApp");
             app.UseAuthentication();
             app.UseAuthorization();
-
+            app.UseCookiePolicy();
             app.MapControllers();
-
             app.Run();
         }
     }

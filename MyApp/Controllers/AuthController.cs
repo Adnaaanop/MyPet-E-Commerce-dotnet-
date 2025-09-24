@@ -5,6 +5,7 @@ using MyApp.DTOs.Common;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 
 namespace MyApp.Controllers
 {
@@ -29,7 +30,10 @@ namespace MyApp.Controllers
                 if (result == null)
                     return BadRequest(ApiResponse<AuthResponse>.FailResponse("Email already exists", 400));
 
-                return Ok(ApiResponse<AuthResponse>.SuccessResponse(result, "Registered successfully"));
+                // Set cookies for newly registered user
+                SetTokenCookies(result);
+
+                return Ok(ApiResponse<AuthResponse>.SuccessResponse(null, "Registered successfully"));
             }
             catch (Exception ex)
             {
@@ -39,59 +43,111 @@ namespace MyApp.Controllers
 
         // POST: api/auth/login
         [HttpPost("login")]
-        public async Task<ActionResult<ApiResponse<AuthResponse>>> Login([FromBody] LoginRequest request)
+        public async Task<ActionResult<ApiResponse<object>>> Login([FromBody] LoginRequest request)
         {
             try
             {
                 var result = await _authService.LoginAsync(request);
 
                 if (result == null)
-                    return Unauthorized(ApiResponse<AuthResponse>.FailResponse("Invalid email or password", 401));
+                    return Unauthorized(ApiResponse<object>.FailResponse("Invalid email or password", 401));
 
                 if (string.IsNullOrEmpty(result.AccessToken))
-                    return StatusCode(403, ApiResponse<AuthResponse>.FailResponse("Your account has been blocked. Please contact support.", 403));
+                    return StatusCode(403, ApiResponse<object>.FailResponse("Your account has been blocked", 403));
 
+                // ✅ Set cookies
+                SetTokenCookies(result);
 
-                return Ok(ApiResponse<AuthResponse>.SuccessResponse(result, "Login successful"));
+                // ✅ Return user info + tokens in response for Swagger/frontend
+                var responseData = new
+                {
+                    id = result.Id,
+                    name = result.Name,
+                    role = result.Role,
+                    accessToken = result.AccessToken,
+                    refreshToken = result.RefreshToken,
+                    expiresAt = result.ExpiresAt
+                };
+
+                return Ok(ApiResponse<object>.SuccessResponse(responseData, "Login successful"));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ApiResponse<AuthResponse>.FailResponse("Login failed", 500, new List<string> { ex.Message }));
+                return StatusCode(500, ApiResponse<object>.FailResponse("Login failed", 500, new List<string> { ex.Message }));
             }
         }
 
+
+
         // POST: api/auth/refresh
         [HttpPost("refresh")]
-        public async Task<ActionResult<ApiResponse<RefreshResponse>>> Refresh([FromBody] RefreshRequest request)
+        public async Task<ActionResult<ApiResponse<object>>> Refresh()
         {
             try
             {
-                var result = await _authService.RefreshTokenAsync(request);
+                if (!Request.Cookies.TryGetValue("refreshToken", out var refreshToken))
+                    return Unauthorized(ApiResponse<object>.FailResponse("No refresh token found", 401));
+
+                var result = await _authService.RefreshTokenAsync(new RefreshRequest { RefreshToken = refreshToken });
 
                 if (result == null)
-                    return Unauthorized(ApiResponse<RefreshResponse>.FailResponse("Invalid or expired refresh token", 401));
+                    return Unauthorized(ApiResponse<object>.FailResponse("Invalid or expired refresh token", 401));
 
-                return Ok(ApiResponse<RefreshResponse>.SuccessResponse(result, "Token refreshed successfully"));
+                // Set new cookies
+                SetTokenCookies(new AuthResponse
+                {
+                    AccessToken = result.AccessToken,
+                    RefreshToken = result.RefreshToken,
+                    ExpiresAt = result.ExpiresAt
+                });
+
+                return Ok(ApiResponse<object>.SuccessResponse(null, "Token refreshed successfully"));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ApiResponse<RefreshResponse>.FailResponse("Failed to refresh token", 500, new List<string> { ex.Message }));
+                return StatusCode(500, ApiResponse<object>.FailResponse("Failed to refresh token", 500, new List<string> { ex.Message }));
             }
         }
 
         // POST: api/auth/revoke
         [HttpPost("revoke")]
-        public async Task<ActionResult<ApiResponse<object>>> Revoke([FromBody] RefreshRequest request)
+        public async Task<ActionResult<ApiResponse<object>>> Revoke()
         {
             try
             {
-                await _authService.RevokeRefreshTokenAsync(request.RefreshToken);
-                return Ok(ApiResponse<object>.SuccessResponse(null, "Refresh token revoked successfully"));
+                if (Request.Cookies.TryGetValue("refreshToken", out var refreshToken))
+                {
+                    await _authService.RevokeRefreshTokenAsync(refreshToken);
+                }
+
+                // Delete cookies
+                Response.Cookies.Delete("accessToken");
+                Response.Cookies.Delete("refreshToken");
+
+                return Ok(ApiResponse<object>.SuccessResponse(null, "Logged out successfully"));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ApiResponse<object>.FailResponse("Failed to revoke refresh token", 500, new List<string> { ex.Message }));
+                return StatusCode(500, ApiResponse<object>.FailResponse("Failed to revoke token", 500, new List<string> { ex.Message }));
             }
         }
+
+        // Helper method to set cookies
+        // Helper method to set cookies
+        private void SetTokenCookies(AuthResponse auth)
+        {
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,                // cannot be accessed by JS
+                Secure = true,                  // must be true for HTTPS
+                SameSite = SameSiteMode.None,   // allow cross-origin requests
+                Expires = auth.ExpiresAt,
+                Path = "/"
+            };
+
+            Response.Cookies.Append("accessToken", auth.AccessToken, cookieOptions);
+            Response.Cookies.Append("refreshToken", auth.RefreshToken, cookieOptions);
+        }
+
     }
 }

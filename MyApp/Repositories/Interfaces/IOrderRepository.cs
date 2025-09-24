@@ -1,4 +1,6 @@
 ﻿using MyApp.Entities;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace MyApp.Repositories.Interfaces
 {
