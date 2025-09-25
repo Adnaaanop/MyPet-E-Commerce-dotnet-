@@ -165,25 +165,28 @@ namespace MyApp.Controllers
                 var userId = GetUserId();
                 var total = request.Total;
 
+                // 1️⃣ Create Razorpay order using SDK
                 var client = new RazorpayClient(
                     _configuration["Razorpay:KeyId"],
                     _configuration["Razorpay:KeySecret"]);
 
-                var razorpayOrder = new Dictionary<string, object>
-                {
-                    {"amount", total * 100}, // Amount in paise
-                    {"currency", "INR"},
-                    {"receipt", $"order_{userId}_{DateTime.UtcNow.Ticks}"}
-                };
+                var razorpayOrderOptions = new Dictionary<string, object>
+        {
+            {"amount", (int)(total * 100)}, // Amount in paise
+            {"currency", "INR"},
+            {"receipt", $"order_{userId}_{DateTime.UtcNow.Ticks}"}
+        };
 
-                var order = await Task.Run(() => client.Order.Create(razorpayOrder));
-                var orderId = order["id"];
+                var razorpayOrder = client.Order.Create(razorpayOrderOptions);
+                string razorpayOrderId = razorpayOrder["id"];
 
+                // 2️⃣ Save a pending order in DB with RazorpayOrderId
                 var tempOrder = new MyApp.Entities.Order
                 {
                     UserId = userId,
                     Total = total,
                     Status = OrderStatus.Pending,
+                    RazorpayOrderId = razorpayOrderId, // ✅ STORE IT IN DB
                     Street = request.Street,
                     City = request.City,
                     Pincode = request.Pincode,
@@ -194,7 +197,7 @@ namespace MyApp.Controllers
 
                 return Ok(ApiResponse<object>.SuccessResponse(new
                 {
-                    orderId = orderId,
+                    orderId = razorpayOrderId,
                     amount = total * 100,
                     currency = "INR",
                     key = _configuration["Razorpay:KeyId"],
@@ -204,7 +207,7 @@ namespace MyApp.Controllers
                     prefill = new { name = "Customer", email = "customer@example.com", contact = "9999999999" },
                     theme = new { color = "#f97316" },
                     handler = "/api/orders/razorpay-handler"
-                }, "Razorpay order created successfully"));
+                }, "Razorpay order created and saved successfully"));
             }
             catch (Exception ex)
             {
@@ -217,57 +220,43 @@ namespace MyApp.Controllers
         {
             try
             {
-                var client = new RazorpayClient(
-                    _configuration["Razorpay:KeyId"],
-                    _configuration["Razorpay:KeySecret"]);
-
-                var attributes = new Dictionary<string, string>
-                {
-                    {"razorpay_order_id", request.RazorpayOrderId},
-                    {"razorpay_payment_id", request.RazorpayPaymentId},
-                    {"razorpay_signature", request.RazorpaySignature}
-                };
-
-                // Manual signature verification as Utility might not be available
+                // 1️⃣ Verify Signature
                 string secret = _configuration["Razorpay:KeySecret"];
                 string toSign = $"{request.RazorpayOrderId}|{request.RazorpayPaymentId}";
                 using (var hmac = new System.Security.Cryptography.HMACSHA256(System.Text.Encoding.UTF8.GetBytes(secret)))
                 {
                     var computedSignature = Convert.ToBase64String(hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(toSign)));
-                    var result = computedSignature == request.RazorpaySignature;
-                    if (!result)
+                    if (computedSignature != request.RazorpaySignature)
                     {
-                        return BadRequest("Invalid payment signature");
+                        return BadRequest(new { success = false, message = "Invalid payment signature" });
                     }
                 }
 
-                var userId = GetUserId();
-                var orders = await _orderService.GetAllOrdersAsync(OrderStatus.Pending);
-                var order = orders.FirstOrDefault(o => o.UserId == userId);
-                if (order == null)
+                // 2️⃣ Fetch order from DB by RazorpayOrderId
+                var dbOrder = await _orderService.GetOrderByRazorpayOrderIdAsync(request.RazorpayOrderId);
+                if (dbOrder == null)
                 {
-                    return NotFound("Order not found");
+                    return NotFound(new { success = false, message = "Order not found in database" });
                 }
 
-                var dbOrder = await _orderService.GetOrderByIdAsync(order.Id);
-                if (dbOrder == null) return NotFound("Order not found in database");
-
+                // 3️⃣ Update status to Paid
                 var orderEntity = _mapper.Map<MyApp.Entities.Order>(dbOrder);
                 orderEntity.Status = OrderStatus.Paid;
                 orderEntity.PaymentId = request.RazorpayPaymentId;
                 orderEntity.PaymentStatus = "paid";
 
                 await _orderService.UpdateOrderAsync(orderEntity);
-                await _cartService.ClearUserCartAsync(userId);
+                await _cartService.ClearUserCartAsync(orderEntity.UserId);
 
                 var orderDto = _mapper.Map<OrderDto>(orderEntity);
                 return Ok(new { success = true, message = "Payment successful", order = orderDto });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { success = false, message = "Payment verification failed" });
+                return StatusCode(500, new { success = false, message = "Payment verification failed", error = ex.Message });
             }
         }
+
 
         [HttpPut("{id}/status")]
         [Authorize(Roles = "Admin")]

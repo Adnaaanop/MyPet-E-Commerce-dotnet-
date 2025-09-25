@@ -26,5 +26,7 @@ namespace MyApp.Services.Interfaces
         Task<OrderDto?> UpdateOrderStatusAsync(int orderId, OrderStatus newStatus);
 
         Task<OrderDto?> CancelOrderAsync(int id, int userId);
+        Task<OrderDto?> GetOrderByRazorpayOrderIdAsync(string razorpayOrderId);
+
     }
 }

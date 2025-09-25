@@ -12,6 +12,7 @@ namespace MyApp.Entities
         public DateTime PlacedAt { get; set; } = DateTime.UtcNow;
 
         // Payment details
+        public string? RazorpayOrderId { get; set; } // ✅ NEW FIELD
         public string? PaymentId { get; set; } // Razorpay payment ID
         public string? PaymentStatus { get; set; } // e.g., "paid", "failed"
 

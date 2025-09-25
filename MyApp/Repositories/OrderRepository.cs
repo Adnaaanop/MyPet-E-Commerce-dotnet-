@@ -85,5 +85,12 @@ namespace MyApp.Repositories
                 await _context.SaveChangesAsync();
             }
         }
+        public async Task<Order?> GetByRazorpayOrderIdAsync(string razorpayOrderId)
+        {
+            return await _context.Orders
+                                 .Include(o => o.Items)
+                                 .FirstOrDefaultAsync(o => o.RazorpayOrderId == razorpayOrderId);
+        }
+
     }
 }

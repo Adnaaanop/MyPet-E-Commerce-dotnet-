@@ -18,5 +18,7 @@ namespace MyApp.Repositories.Interfaces
         Task<Order> AddAsync(Order order);
         Task UpdateAsync(Order order);
         Task DeleteAsync(int id);
+        Task<Order?> GetByRazorpayOrderIdAsync(string razorpayOrderId);
+
     }
 }

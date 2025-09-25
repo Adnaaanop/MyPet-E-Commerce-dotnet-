@@ -88,5 +88,11 @@ namespace MyApp.Services
 
             return _mapper.Map<OrderDto>(order);
         }
+        public async Task<OrderDto?> GetOrderByRazorpayOrderIdAsync(string razorpayOrderId)
+        {
+            var order = await _orderRepository.GetByRazorpayOrderIdAsync(razorpayOrderId);
+            return order == null ? null : _mapper.Map<OrderDto>(order);
+        }
+
     }
 }
