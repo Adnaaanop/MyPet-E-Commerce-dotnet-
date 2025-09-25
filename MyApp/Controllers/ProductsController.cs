@@ -19,7 +19,6 @@ namespace MyApp.Controllers
             _cloudinaryService = cloudinaryService;
         }
 
-        // GET: api/products?category=&search=&sortOrder=&page=&pageSize=
         [HttpGet]
         public async Task<ActionResult<ApiResponse<IEnumerable<ProductDto>>>> GetAll(
             [FromQuery] string? category,
@@ -32,7 +31,6 @@ namespace MyApp.Controllers
             {
                 var products = await _productService.GetAllFilteredAsync(category, search, sortOrder);
 
-                // Pagination
                 if (pageSize > 0)
                 {
                     products = products.Skip((page - 1) * pageSize).Take(pageSize);
@@ -70,7 +68,7 @@ namespace MyApp.Controllers
         {
             try
             {
-                string? imageUrl = null;
+                string? imageUrl = dto.ImageUrl; // Changed from Image
                 if (dto.ImageFile != null)
                     imageUrl = await _cloudinaryService.UploadImageAsync(dto.ImageFile);
 
@@ -90,7 +88,7 @@ namespace MyApp.Controllers
         {
             try
             {
-                string? imageUrl = null;
+                string? imageUrl = dto.ImageUrl; // Changed from Image
                 if (dto.ImageFile != null)
                     imageUrl = await _cloudinaryService.UploadImageAsync(dto.ImageFile);
 

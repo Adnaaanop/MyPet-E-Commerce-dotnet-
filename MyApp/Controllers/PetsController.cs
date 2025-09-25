@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using MyApp.DTOs.Pets;
 using MyApp.DTOs.Common;
+using MyApp.DTOs.Pets;
 using MyApp.Services.Interfaces;
 using MyApp.Services;
 
@@ -31,7 +31,6 @@ namespace MyApp.Controllers
             {
                 var pets = await _petService.GetAllFilteredAsync(category, search, sortOrder);
 
-                // ✅ Pagination (optional)
                 if (pageSize > 0)
                 {
                     pets = pets.Skip((page - 1) * pageSize).Take(pageSize);
@@ -67,10 +66,10 @@ namespace MyApp.Controllers
         {
             try
             {
-                string? imageUrl = null;
+                string? imageUrl = dto.ImageUrl; // Use ImageUrl if provided
                 if (dto.ImageFile != null)
                 {
-                    imageUrl = await _cloudinaryService.UploadImageAsync(dto.ImageFile);
+                    imageUrl = await _cloudinaryService.UploadImageAsync(dto.ImageFile); // Prioritize ImageFile
                 }
 
                 var created = await _petService.CreateAsync(dto, imageUrl);
@@ -88,10 +87,10 @@ namespace MyApp.Controllers
         {
             try
             {
-                string? imageUrl = null;
+                string? imageUrl = dto.ImageUrl; // Use ImageUrl if provided
                 if (dto.ImageFile != null)
                 {
-                    imageUrl = await _cloudinaryService.UploadImageAsync(dto.ImageFile);
+                    imageUrl = await _cloudinaryService.UploadImageAsync(dto.ImageFile); // Prioritize ImageFile
                 }
 
                 var updated = await _petService.UpdateAsync(id, dto, imageUrl);

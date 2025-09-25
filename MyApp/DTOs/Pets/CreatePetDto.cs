@@ -12,10 +12,7 @@ namespace MyApp.DTOs.Pets
         public string Description { get; set; } = string.Empty;
         public string Category { get; set; } = string.Empty;
         public int Stock { get; set; }
-
-        // ✅ Only file upload
-
-        // File upload
+        public string? ImageUrl { get; set; } // Added to support URL input
         public IFormFile? ImageFile { get; set; }
     }
 }

@@ -11,10 +11,7 @@ namespace MyApp.DTOs.Products
         public string Description { get; set; } = string.Empty;
         public double Rating { get; set; }
         public int Stock { get; set; }
-
-        // ✅ Only file upload
-
-        // File upload
+        public string? ImageUrl { get; set; } // Changed from Image
         public IFormFile? ImageFile { get; set; }
     }
 }
