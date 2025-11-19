@@ -1,0 +1,33 @@
+﻿version: '3.9'
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: myapp-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "YourPassword123!"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sql_data:/var/opt/mssql
+    networks:
+      - myapp-network
+
+  backend:
+    build: .
+    container_name: myapp-backend
+    ports:
+      - "7200:8080"
+    depends_on:
+      - sqlserver
+    environment:
+      SA_PASSWORD: "YourPassword123!"  # Needed for wait-for-sql.sh
+    networks:
+      - myapp-network
+
+networks:
+  myapp-network:
+
+volumes:
+  sql_data:
