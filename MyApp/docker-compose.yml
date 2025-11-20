@@ -26,6 +26,15 @@ services:
     networks:
       - myapp-network
 
+  frontend:
+    build: C:/Users/user/Desktop/React/Projects/myapp
+    container_name: myapp-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - myapp-network  
 networks:
   myapp-network:
 
